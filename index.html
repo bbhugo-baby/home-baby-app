@@ -20,6 +20,7 @@
     --line: #E4DECE;
     --done-bg: #F1EEE3;
     --danger: #B23B3B;
+    --danger-soft: #F3DEDE;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -206,13 +207,13 @@
   .cal-day.today { border-color: var(--ink); border-width: 2px; }
   .cal-day-dots { display: flex; gap: 2px; }
   .cal-dot { width: 5px; height: 5px; border-radius: 50%; }
-  .cal-dot.baby { background: var(--rose); }
+  .cal-dot.baby { background: var(--sage); }
   .cal-dot.daddy { background: var(--sky); }
-  .cal-dot.mummy { background: var(--gold); }
+  .cal-dot.mummy { background: var(--danger); }
   .person-tag { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
-  .person-tag.baby { background: var(--rose-soft); color: var(--rose); }
+  .person-tag.baby { background: var(--sage-soft); color: var(--sage); }
   .person-tag.daddy { background: var(--sky-soft); color: var(--sky); }
-  .person-tag.mummy { background: var(--gold-soft); color: var(--gold); }
+  .person-tag.mummy { background: var(--danger-soft); color: var(--danger); }
 </style>
 </head>
 <body>
@@ -448,8 +449,8 @@
     <div class="field-label">For</div>
     <select id="apptPerson">
       <option value="baby">👶 Baby</option>
-      <option value="mummy">Mummy</option>
-      <option value="daddy">Daddy</option>
+      <option value="mummy">👩 Mummy</option>
+      <option value="daddy">👨 Daddy</option>
     </select>
     <div class="field-label">Notes (optional)</div>
     <textarea id="apptNotes" rows="2" maxlength="300"></textarea>
@@ -458,18 +459,6 @@
       <button class="btn-save chores-c" onclick="saveAppt()">Save</button>
     </div>
     <div class="add-actions" style="margin-top:8px;" id="apptDeleteRow"></div>
-  </div>
-</div>
-
-<!-- DAY DETAIL MODAL -->
-<div class="modal-overlay" id="dayModalOverlay">
-  <div class="modal">
-    <h3 id="dayModalTitle">—</h3>
-    <div id="dayModalList" class="log-list" style="margin-bottom:12px;"></div>
-    <button class="add-toggle" style="margin-top:0;" onclick="openApptModalForDay()">+ Add appointment</button>
-    <div class="add-actions" style="margin-top:10px;">
-      <button class="btn-cancel" onclick="closeModal('dayModalOverlay')">Close</button>
-    </div>
   </div>
 </div>
 
@@ -1624,7 +1613,11 @@ function calChangeMonth(delta) {
 }
 
 function personInfo(p) {
-  return { baby: { label: '👶 Baby', cls: 'baby' }, daddy: { label: 'Daddy', cls: 'daddy' }, mummy: { label: 'Mummy', cls: 'mummy' } }[p] || { label: p, cls: 'baby' };
+  return {
+    baby: { label: '👶 Baby', cls: 'baby' },
+    daddy: { label: '👨 Daddy', cls: 'daddy' },
+    mummy: { label: '👩 Mummy', cls: 'mummy' }
+  }[p] || { label: p, cls: 'baby' };
 }
 
 function openApptModal(prefillDate) {
@@ -1636,9 +1629,6 @@ function openApptModal(prefillDate) {
   document.getElementById('apptNotes').value = '';
   document.getElementById('apptDeleteRow').innerHTML = '';
   openModal('apptModalOverlay');
-}
-function openApptModalForDay() {
-  openApptModal(dayModalDate);
 }
 function openApptEdit(id) {
   const e = calEvents.find(x => x.id === id);
@@ -1668,29 +1658,13 @@ async function saveAppt() {
   }
   closeModal('apptModalOverlay');
   renderCalendar();
-  if (document.getElementById('dayModalOverlay').classList.contains('open')) openDayModal(dayModalDate);
   await saveCalendar();
 }
 async function deleteAppt() {
   calEvents = calEvents.filter(x => x.id !== editingApptId);
   closeModal('apptModalOverlay');
   renderCalendar();
-  if (document.getElementById('dayModalOverlay').classList.contains('open')) openDayModal(dayModalDate);
   await saveCalendar();
-}
-
-function openDayModal(dateStr) {
-  dayModalDate = dateStr;
-  const d = new Date(dateStr + 'T00:00:00');
-  document.getElementById('dayModalTitle').textContent = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-  const dayEvents = calEvents.filter(e => e.date === dateStr).sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
-  const list = document.getElementById('dayModalList');
-  if (dayEvents.length === 0) {
-    list.innerHTML = '<div class="empty" style="padding:16px;">No appointments this day</div>';
-  } else {
-    list.innerHTML = dayEvents.map(apptRow).join('');
-  }
-  openModal('dayModalOverlay');
 }
 
 function apptRow(e) {
@@ -1727,7 +1701,7 @@ function renderCalendar() {
     const people = [...new Set(dayEvents.map(e => e.person))];
     const dots = people.map(p => `<span class="cal-dot ${personInfo(p).cls}"></span>`).join('');
     const isToday = dateStr === todayStr;
-    html += `<div class="cal-day ${isToday ? 'today' : ''}" onclick="openDayModal('${dateStr}')">
+    html += `<div class="cal-day ${isToday ? 'today' : ''}" onclick="openApptModal('${dateStr}')">
       <div>${day}</div>
       <div class="cal-day-dots">${dots}</div>
     </div>`;
