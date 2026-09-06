@@ -615,7 +615,7 @@ function enterApp() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'block';
   startApp();
-  setInterval(() => { firebaseRefreshToken().catch(() => {}); }, 50 * 60 * 1000);
+  setInterval(() => { firebaseRefreshToken().then(reconnectAllSubscriptions).catch(() => {}); }, 50 * 60 * 1000);
 }
 
 (async function initAuth() {
@@ -658,6 +658,33 @@ window.storage = {
     return { keys: [], shared: !!shared };
   }
 };
+
+/* ---------- Live streaming (Server-Sent Events) — replaces polling ---------- */
+const activeSubscriptions = [];
+function subscribeToKey(key, onUpdate) {
+  let es = null;
+  function connect() {
+    if (es) es.close();
+    es = new EventSource(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`);
+    es.addEventListener('put', (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        onUpdate(msg.data);
+      } catch (err) { /* ignore malformed event */ }
+    });
+    es.addEventListener('patch', () => {
+      // We never write partial patches ourselves, but handle defensively by re-reading the full value.
+      window.storage.get(key, true).then(r => onUpdate(r.value)).catch(() => {});
+    });
+  }
+  connect();
+  const sub = { reconnect: connect, close: () => es && es.close() };
+  activeSubscriptions.push(sub);
+  return sub;
+}
+function reconnectAllSubscriptions() {
+  activeSubscriptions.forEach(sub => sub.reconnect());
+}
 
 const TASKS_KEY = 'household-tasks';
 const BABY_KEY = 'baby-logs';
@@ -716,13 +743,12 @@ function setPage(p) {
 }
 
 /* ---------- Tasks (Chores) ---------- */
-async function loadTasks() {
-  try {
-    const result = await window.storage.get(TASKS_KEY, true);
-    tasks = result && result.value ? JSON.parse(result.value) : [];
-  } catch (e) { tasks = []; }
-  tasksLoaded = true;
-  renderTasks();
+function loadTasks() {
+  subscribeToKey(TASKS_KEY, (value) => {
+    tasks = value ? JSON.parse(value) : [];
+    tasksLoaded = true;
+    if (!tasksSaving) renderTasks();
+  });
 }
 async function saveTasks() {
   tasksSaving = true;
@@ -847,15 +873,12 @@ function renderTasks() {
 }
 
 /* ---------- Baby log ---------- */
-async function loadBaby() {
-  try {
-    const result = await window.storage.get(BABY_KEY, true);
-    babyLogs = result && result.value ? JSON.parse(result.value) : [];
-  } catch (e) { babyLogs = []; }
-  babyLoaded = true;
-  renderBaby();
-  // Photo auto-archive disabled per request — photos are kept indefinitely.
-  // archiveOldPhotos();
+function loadBaby() {
+  subscribeToKey(BABY_KEY, (value) => {
+    babyLogs = value ? JSON.parse(value) : [];
+    babyLoaded = true;
+    if (!babySaving) renderBaby();
+  });
 }
 
 const PHOTO_RETENTION_DAYS = 30;
@@ -1413,13 +1436,12 @@ let growthLogs = [];
 let growthLoaded = false, growthSaving = false;
 let editingGrowthId = null;
 
-async function loadGrowth() {
-  try {
-    const result = await window.storage.get(GROWTH_KEY, true);
-    growthLogs = result && result.value ? JSON.parse(result.value) : [];
-  } catch (e) { growthLogs = []; }
-  growthLoaded = true;
-  renderGrowth();
+function loadGrowth() {
+  subscribeToKey(GROWTH_KEY, (value) => {
+    growthLogs = value ? JSON.parse(value) : [];
+    growthLoaded = true;
+    if (!growthSaving) renderGrowth();
+  });
 }
 async function saveGrowth() {
   growthSaving = true;
@@ -1546,13 +1568,12 @@ let dayModalDate = null;
   calViewMonth = now.getMonth();
 })();
 
-async function loadCalendar() {
-  try {
-    const result = await window.storage.get(CALENDAR_KEY, true);
-    calEvents = result && result.value ? JSON.parse(result.value) : [];
-  } catch (e) { calEvents = []; }
-  calLoaded = true;
-  renderCalendar();
+function loadCalendar() {
+  subscribeToKey(CALENDAR_KEY, (value) => {
+    calEvents = value ? JSON.parse(value) : [];
+    calLoaded = true;
+    if (!calSaving) renderCalendar();
+  });
 }
 async function saveCalendar() {
   calSaving = true;
@@ -1732,7 +1753,6 @@ function startApp() {
   loadBaby();
   loadGrowth();
   loadCalendar();
-  setInterval(() => { if (!tasksSaving) loadTasks(); if (!babySaving) loadBaby(); if (!growthSaving) loadGrowth(); if (!calSaving) loadCalendar(); }, 8000);
 }
 </script>
 
