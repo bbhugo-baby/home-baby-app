@@ -74,7 +74,7 @@
     color: var(--paper); font-size: 14.5px; font-weight: 600; cursor: pointer; margin-top: 14px; }
   .add-form { display: none; flex-direction: column; gap: 8px; margin-top: 10px; }
   .add-form.open { display: flex; }
-  input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], select, textarea {
+  input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], input[type="email"], input[type="password"], select, textarea {
     padding: 11px 13px; border-radius: 10px; border: 1.5px solid var(--line); font-size: 14.5px;
     font-family: inherit; background: white; color: var(--ink); width: 100%; }
   .add-row { display: flex; gap: 8px; }
@@ -142,6 +142,13 @@
   .loading, .error { text-align: center; padding: 34px 16px; color: var(--ink-soft); font-size: 13.5px; }
   .error { color: var(--danger); }
 
+  /* ---- Login screen ---- */
+  .login-screen {
+    position: fixed; inset: 0; background: var(--paper); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .login-box { width: 100%; max-width: 320px; }
+
   /* ---- Dashboard / always-on view ---- */
   .dash-clock { text-align: center; margin: 6px 0 16px; }
   .dash-time { font-size: 48px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
@@ -181,10 +188,27 @@
 </head>
 <body>
 
-<div class="app">
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <h1 style="margin:0 0 4px; font-size: 24px;">Home & Baby</h1>
+    <p style="margin:0 0 20px; color: var(--ink-soft); font-size: 13px;">Sign in to continue</p>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" style="margin-top:8px;">
+    <button class="btn-save chores-c" style="width:100%; padding:12px; margin-top:14px; border-radius:10px; border:none; font-weight:700; cursor:pointer;" onclick="doLogin()">Log in</button>
+    <div id="loginError" style="color: var(--danger); font-size: 13px; margin-top:10px; text-align:center;"></div>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none;">
   <header>
-    <h1>Home & Baby</h1>
-    <p>Shared between Mummy & Daddy, updates live.</p>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
+        <h1>Home & Baby</h1>
+        <p>Shared between Mummy & Daddy, updates live.</p>
+      </div>
+      <button class="mini-edit" style="white-space:nowrap;" onclick="doLogout()">Log out</button>
+    </div>
   </header>
 
   <div class="nav">
@@ -479,17 +503,108 @@
 <script>
 /* ---------- Firebase-backed storage (replaces Claude's window.storage) ---------- */
 const FIREBASE_DB_URL = 'https://bb-he-app-default-rtdb.asia-southeast1.firebasedatabase.app';
+const FIREBASE_API_KEY = 'AIzaSyAO-ZUceRqf_uSnhB3ePSQN-5heXDiN0Ms';
+const AUTH_STORAGE_KEY = 'hb_auth';
+
+let authIdToken = null;
+let authRefreshToken = null;
+
+function saveAuthLocal() {
+  try {
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ idToken: authIdToken, refreshToken: authRefreshToken }));
+  } catch (e) { /* ignore */ }
+}
+function loadAuthLocal() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+function clearAuthLocal() {
+  try { localStorage.removeItem(AUTH_STORAGE_KEY); } catch (e) { /* ignore */ }
+}
+
+async function firebaseSignIn(email, password) {
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, returnSecureToken: true })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error && data.error.message ? data.error.message : 'Login failed');
+  authIdToken = data.idToken;
+  authRefreshToken = data.refreshToken;
+  saveAuthLocal();
+}
+
+async function firebaseRefreshToken() {
+  if (!authRefreshToken) throw new Error('No refresh token');
+  const res = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FIREBASE_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(authRefreshToken)}`
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error('Refresh failed');
+  authIdToken = data.id_token;
+  authRefreshToken = data.refresh_token;
+  saveAuthLocal();
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Enter your email and password.'; return; }
+  try {
+    await firebaseSignIn(email, password);
+    enterApp();
+  } catch (e) {
+    errEl.textContent = 'Could not log in — check your email and password.';
+  }
+}
+function doLogout() {
+  authIdToken = null;
+  authRefreshToken = null;
+  clearAuthLocal();
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+}
+function enterApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  startApp();
+  setInterval(() => { firebaseRefreshToken().catch(() => {}); }, 50 * 60 * 1000);
+}
+
+(async function initAuth() {
+  const saved = loadAuthLocal();
+  if (saved && saved.refreshToken) {
+    authRefreshToken = saved.refreshToken;
+    authIdToken = saved.idToken;
+    try {
+      await firebaseRefreshToken();
+      enterApp();
+      return;
+    } catch (e) { clearAuthLocal(); }
+  }
+  document.getElementById('loginScreen').style.display = 'flex';
+})();
 
 window.storage = {
   async get(key, shared) {
-    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json`);
+    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`);
     if (!res.ok) throw new Error(`Firebase read failed: ${res.status}`);
     const data = await res.json();
     if (data === null) throw new Error('Key not found');
     return { key, value: data, shared: !!shared };
   },
   async set(key, value, shared) {
-    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json`, {
+    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(value)
@@ -498,7 +613,7 @@ window.storage = {
     return { key, value, shared: !!shared };
   },
   async delete(key, shared) {
-    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json`, { method: 'DELETE' });
+    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`, { method: 'DELETE' });
     if (!res.ok) return null;
     return { key, deleted: true, shared: !!shared };
   },
@@ -1355,12 +1470,14 @@ function renderGrowth() {
   content.innerHTML = '<div class="log-list">' + sorted.map(growthRow).join('') + '</div>';
 }
 
-updateClock();
-setInterval(updateClock, 1000);
-loadTasks();
-loadBaby();
-loadGrowth();
-setInterval(() => { if (!tasksSaving) loadTasks(); if (!babySaving) loadBaby(); if (!growthSaving) loadGrowth(); }, 8000);
+function startApp() {
+  updateClock();
+  setInterval(updateClock, 1000);
+  loadTasks();
+  loadBaby();
+  loadGrowth();
+  setInterval(() => { if (!tasksSaving) loadTasks(); if (!babySaving) loadBaby(); if (!growthSaving) loadGrowth(); }, 8000);
+}
 </script>
 
 </body>
