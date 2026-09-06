@@ -321,45 +321,8 @@
 
   <!-- BABY PAGE -->
   <div class="page" id="page-baby">
-    <div class="summary">
-      <div class="stat"><div class="num" id="statSleep">0h</div><div class="lbl">Sleep today</div></div>
-      <div class="stat"><div class="num" id="statMilk">0ml</div><div class="lbl">Milk today</div></div>
-      <div class="stat"><div class="num" id="statMeals">0</div><div class="lbl">Meals today</div></div>
-    </div>
-
-    <div class="status-banner sleep-b" id="napBanner" style="display:none;">
-      <span id="napText"></span>
-      <button onclick="tapSleep()">Wake up</button>
-    </div>
-    <div class="status-banner food-b" id="foodBanner" style="display:none;">
-      <span id="foodBannerText"></span>
-      <button onclick="triggerFoodCapture()">Mark finished</button>
-    </div>
-
-    <div class="quick-actions-block">
-      <div class="quick-actions">
-        <div class="qbtn-wrap">
-          <button class="qbtn sleep-c" id="babySleepBtn" onclick="tapSleep()"><span class="ic">😴</span><span id="babySleepLbl">Sleep</span></button>
-          <button class="mini-edit" onclick="openSleepManual()">Key in time</button>
-        </div>
-        <div class="qbtn-wrap">
-          <button class="qbtn milk-c" onclick="tapMilk()"><span class="ic">🍼</span><span>180ml</span></button>
-          <button class="mini-edit" onclick="openMilkManual()">Custom amount</button>
-        </div>
-        <div class="qbtn-wrap">
-          <button class="qbtn food-c" id="babyFoodBtn" onclick="triggerFoodCapture()"><span class="ic">🍽️</span><span id="babyFoodLbl">Food</span></button>
-          <button class="mini-edit" style="visibility:hidden;">·</button>
-        </div>
-      </div>
-      <div class="mini-log-grid">
-        <button class="mini-log-btn" onclick="tapSimple('shower')"><span class="ic">🚿</span>Shower<span class="mini-log-badge" id="badge-baby-shower">0</span></button>
-        <button class="mini-log-btn" onclick="tapSimple('poop')"><span class="ic">💩</span>Poop<span class="mini-log-badge" id="badge-baby-poop">0</span></button>
-        <button class="mini-log-btn" onclick="tapSimple('pee')"><span class="ic">💧</span>Pee<span class="mini-log-badge" id="badge-baby-pee">0</span></button>
-        <button class="mini-log-btn" onclick="tapSimple('diaper')"><span class="ic">🧷</span>Diaper<span class="mini-log-badge" id="badge-baby-diaper">0</span></button>
-      </div>
-      <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:8px;" onclick="exportData()">⤓ Export all data (CSV)</button>
-      <button class="add-toggle" style="margin-top:10px; background: var(--rose);" onclick="openNoteModal()">📝 Add a note</button>
-    </div>
+    <button class="mini-edit" style="display:block; width:100%; text-align:center;" onclick="exportData()">⤓ Export all data (CSV)</button>
+    <button class="add-toggle" style="margin-top:10px; background: var(--rose);" onclick="openNoteModal()">📝 Add a note</button>
 
     <div id="babyLogContent"><div class="loading">Loading…</div></div>
 
@@ -1317,7 +1280,7 @@ function updateMiniLogBadges() {
   babyLogs.forEach(l => {
     if (Object.prototype.hasOwnProperty.call(counts, l.type) && isToday(l.time)) counts[l.type]++;
   });
-  ['today', 'baby'].forEach(prefix => {
+  ['today'].forEach(prefix => {
     Object.keys(counts).forEach(type => {
       const el = document.getElementById(`badge-${prefix}-${type}`);
       if (!el) return;
@@ -1332,30 +1295,6 @@ function renderBaby() {
   const content = document.getElementById('babyLogContent');
   if (!babyLoaded) { content.innerHTML = '<div class="loading">Loading…</div>'; renderToday(); return; }
 
-  const { sleepMins, milkMl, meals } = computeTodayStats();
-  document.getElementById('statSleep').textContent = sleepMins >= 60
-    ? `${Math.floor(sleepMins/60)}h ${Math.round(sleepMins%60)}m` : `${Math.round(sleepMins)}m`;
-  document.getElementById('statMilk').textContent = `${milkMl}ml`;
-  document.getElementById('statMeals').textContent = meals;
-
-  const openNap = babyLogs.find(l => l.type === 'sleep' && l.start && !l.end);
-  const napBanner = document.getElementById('napBanner');
-  if (openNap) {
-    napBanner.style.display = 'flex';
-    document.getElementById('napText').textContent = `😴 Napping since ${timeLabel(openNap.start)}`;
-  } else { napBanner.style.display = 'none'; }
-  document.getElementById('babySleepLbl').textContent = openNap ? 'Wake' : 'Sleep';
-  document.getElementById('babySleepBtn').classList.toggle('active-state', !!openNap);
-
-  const openMeal = babyLogs.find(l => l.type === 'food' && l.startPhoto && !l.endPhoto);
-  const foodBanner = document.getElementById('foodBanner');
-  if (openMeal) {
-    foodBanner.style.display = 'flex';
-    document.getElementById('foodBannerText').textContent = `🍽️ Eating since ${timeLabel(openMeal.startTime)}`;
-  } else { foodBanner.style.display = 'none'; }
-  document.getElementById('babyFoodLbl').textContent = openMeal ? 'Finished' : 'Food';
-  document.getElementById('babyFoodBtn').classList.toggle('active-state', !!openMeal);
-
   if (babyLogs.length === 0) {
     content.innerHTML = '<div class="empty">No entries yet — log sleep, milk or food above 👆</div>';
     renderToday();
@@ -1369,9 +1308,17 @@ function renderBaby() {
     groups[label].push(l);
   });
   let html = '';
+  const archivedEntries = [];
   Object.keys(groups).forEach(label => {
-    html += `<div class="section-label">${label}</div><div class="log-list">${groups[label].map(babyLogRow).join('')}</div>`;
+    if (label === 'Today' || label === 'Yesterday') {
+      html += `<div class="section-label">${label}</div><div class="log-list">${groups[label].map(babyLogRow).join('')}</div>`;
+    } else {
+      archivedEntries.push(...groups[label]);
+    }
   });
+  if (archivedEntries.length > 0) {
+    html += `<div class="section-label">Archived</div><div class="log-list">${archivedEntries.map(babyLogRow).join('')}</div>`;
+  }
   content.innerHTML = html;
   renderToday();
 }
