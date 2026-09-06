@@ -835,9 +835,7 @@ function renderTasks() {
   if (completed.length > 0) {
     const recentCompleted = completed.slice(0, 3);
     const archived = completed.slice(3);
-    const compOpen = sectionOpen.choresCompleted;
-    html += `<div class="section-label collapsible" onclick="toggleSection('choresCompleted')"><span class="arrow">${compOpen ? '▾' : '▸'}</span>Completed (${recentCompleted.length})</div>`;
-    if (compOpen) html += '<div class="task-list">' + recentCompleted.map(taskRow).join('') + '</div>';
+    html += '<div class="section-label">Completed</div><div class="task-list">' + recentCompleted.map(taskRow).join('') + '</div>';
     if (archived.length > 0) {
       const archOpen = sectionOpen.choresArchived;
       html += `<div class="section-label collapsible" onclick="toggleSection('choresArchived')"><span class="arrow">${archOpen ? '▾' : '▸'}</span>Archived (${archived.length})</div>`;
@@ -1715,9 +1713,14 @@ function renderCalUpcoming(items) {
   if (!el) return;
   if (!calLoaded) { el.innerHTML = '<div class="loading">Loading…</div>'; return; }
   if (items.length === 0) { el.innerHTML = '<div class="section-label">Upcoming</div><div class="empty">No upcoming appointments</div>'; return; }
-  const open = sectionOpen.calUpcoming;
-  let html = `<div class="section-label collapsible" onclick="toggleSection('calUpcoming')"><span class="arrow">${open ? '▾' : '▸'}</span>Upcoming (${items.length})</div>`;
-  if (open) html += '<div class="log-list">' + items.map(upcomingApptRow).join('') + '</div>';
+  const recent = items.slice(0, 3);
+  const more = items.slice(3);
+  let html = '<div class="section-label">Upcoming</div><div class="log-list">' + recent.map(upcomingApptRow).join('') + '</div>';
+  if (more.length > 0) {
+    const open = sectionOpen.calUpcoming;
+    html += `<div class="section-label collapsible" onclick="toggleSection('calUpcoming')"><span class="arrow">${open ? '▾' : '▸'}</span>More (${more.length})</div>`;
+    if (open) html += '<div class="log-list">' + more.map(upcomingApptRow).join('') + '</div>';
+  }
   el.innerHTML = html;
 }
 
