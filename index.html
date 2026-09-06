@@ -854,7 +854,8 @@ async function loadBaby() {
   } catch (e) { babyLogs = []; }
   babyLoaded = true;
   renderBaby();
-  archiveOldPhotos();
+  // Photo auto-archive disabled per request — photos are kept indefinitely.
+  // archiveOldPhotos();
 }
 
 const PHOTO_RETENTION_DAYS = 30;
