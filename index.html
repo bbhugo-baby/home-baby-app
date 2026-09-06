@@ -1213,7 +1213,8 @@ function babyLogRow(l) {
 function computeTodayStats() {
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date(todayStart); todayEnd.setDate(todayEnd.getDate() + 1);
-  let sleepMins = 0, milkMl = 0, meals = 0;
+  let sleepMins = 0, milkMl = 0;
+  const foodTimes = [];
   babyLogs.forEach(l => {
     if (l.type === 'sleep') {
       const s = new Date(l.start);
@@ -1223,7 +1224,14 @@ function computeTodayStats() {
       if (overlapEnd > overlapStart) sleepMins += (overlapEnd - overlapStart) / 60000;
     }
     if (l.type === 'milk' && isToday(l.time)) milkMl += l.ml;
-    if (l.type === 'food' && isToday(l.startTime)) meals += 1;
+    if (l.type === 'food' && isToday(l.startTime)) foodTimes.push(new Date(l.startTime));
+  });
+  foodTimes.sort((a, b) => a - b);
+  let meals = 0, lastMealTime = null;
+  const MEAL_GAP_MS = 30 * 60 * 1000;
+  foodTimes.forEach(t => {
+    if (!lastMealTime || (t - lastMealTime) > MEAL_GAP_MS) meals++;
+    lastMealTime = t;
   });
   return { sleepMins, milkMl, meals };
 }
