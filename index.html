@@ -181,9 +181,16 @@
   .mini-log-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
   .mini-log-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px;
     border-radius: 12px; border: 1.5px solid var(--line); background: white; font-size: 10.5px; font-weight: 700;
-    color: var(--ink); cursor: pointer; }
+    color: var(--ink); cursor: pointer; position: relative; }
   .mini-log-btn .ic { font-size: 19px; }
   .mini-log-btn:active { background: var(--done-bg); }
+  .mini-log-badge {
+    position: absolute; top: -6px; right: -4px;
+    background: var(--rose); color: white; font-size: 10px; font-weight: 800;
+    min-width: 18px; height: 18px; border-radius: 999px;
+    display: none; align-items: center; justify-content: center;
+    padding: 0 4px; box-shadow: 0 0 0 2px var(--paper); line-height: 1;
+  }
 </style>
 </head>
 <body>
@@ -255,10 +262,10 @@
         </div>
       </div>
       <div class="mini-log-grid">
-        <button class="mini-log-btn" onclick="tapSimple('shower')"><span class="ic">🚿</span>Shower</button>
-        <button class="mini-log-btn" onclick="tapSimple('poop')"><span class="ic">💩</span>Poop</button>
-        <button class="mini-log-btn" onclick="tapSimple('pee')"><span class="ic">💧</span>Pee</button>
-        <button class="mini-log-btn" onclick="tapSimple('diaper')"><span class="ic">🧷</span>Diaper</button>
+        <button class="mini-log-btn" onclick="tapSimple('shower')"><span class="ic">🚿</span>Shower<span class="mini-log-badge" id="badge-today-shower">0</span></button>
+        <button class="mini-log-btn" onclick="tapSimple('poop')"><span class="ic">💩</span>Poop<span class="mini-log-badge" id="badge-today-poop">0</span></button>
+        <button class="mini-log-btn" onclick="tapSimple('pee')"><span class="ic">💧</span>Pee<span class="mini-log-badge" id="badge-today-pee">0</span></button>
+        <button class="mini-log-btn" onclick="tapSimple('diaper')"><span class="ic">🧷</span>Diaper<span class="mini-log-badge" id="badge-today-diaper">0</span></button>
       </div>
     </div>
 
@@ -306,10 +313,10 @@
         </div>
       </div>
       <div class="mini-log-grid">
-        <button class="mini-log-btn" onclick="tapSimple('shower')"><span class="ic">🚿</span>Shower</button>
-        <button class="mini-log-btn" onclick="tapSimple('poop')"><span class="ic">💩</span>Poop</button>
-        <button class="mini-log-btn" onclick="tapSimple('pee')"><span class="ic">💧</span>Pee</button>
-        <button class="mini-log-btn" onclick="tapSimple('diaper')"><span class="ic">🧷</span>Diaper</button>
+        <button class="mini-log-btn" onclick="tapSimple('shower')"><span class="ic">🚿</span>Shower<span class="mini-log-badge" id="badge-baby-shower">0</span></button>
+        <button class="mini-log-btn" onclick="tapSimple('poop')"><span class="ic">💩</span>Poop<span class="mini-log-badge" id="badge-baby-poop">0</span></button>
+        <button class="mini-log-btn" onclick="tapSimple('pee')"><span class="ic">💧</span>Pee<span class="mini-log-badge" id="badge-baby-pee">0</span></button>
+        <button class="mini-log-btn" onclick="tapSimple('diaper')"><span class="ic">🧷</span>Diaper<span class="mini-log-badge" id="badge-baby-diaper">0</span></button>
       </div>
       <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:8px;" onclick="exportData()">⤓ Export all data (CSV)</button>
       <button class="add-toggle" style="margin-top:10px; background: var(--rose);" onclick="openNoteModal()">📝 Add a note</button>
@@ -1227,7 +1234,23 @@ function getLogTime(l) {
   return l.time; // milk, shower, poop, pee, diaper
 }
 
+function updateMiniLogBadges() {
+  const counts = { shower: 0, poop: 0, pee: 0, diaper: 0 };
+  babyLogs.forEach(l => {
+    if (Object.prototype.hasOwnProperty.call(counts, l.type) && isToday(l.time)) counts[l.type]++;
+  });
+  ['today', 'baby'].forEach(prefix => {
+    Object.keys(counts).forEach(type => {
+      const el = document.getElementById(`badge-${prefix}-${type}`);
+      if (!el) return;
+      if (counts[type] > 0) { el.textContent = counts[type]; el.style.display = 'flex'; }
+      else { el.style.display = 'none'; }
+    });
+  });
+}
+
 function renderBaby() {
+  updateMiniLogBadges();
   const content = document.getElementById('babyLogContent');
   if (!babyLoaded) { content.innerHTML = '<div class="loading">Loading…</div>'; renderToday(); return; }
 
