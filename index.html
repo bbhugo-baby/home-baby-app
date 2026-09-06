@@ -1714,8 +1714,9 @@ function renderCalendar() {
     .filter(e => e.date >= todayStr)
     .sort((a, b) => (a.date + (a.time || '99:99')).localeCompare(b.date + (b.time || '99:99')));
 
+  const tomorrowStr = new Date(today.getTime() + 86400000).toISOString().slice(0, 10);
   renderUpcomingInto('calUpcoming', upcoming.slice(0, 10));
-  renderUpcomingInto('dashUpcoming', upcoming.slice(0, 3));
+  renderUpcomingInto('dashUpcoming', upcoming.filter(e => e.date === todayStr || e.date === tomorrowStr));
 }
 
 function upcomingApptRow(e) {
