@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Home & Baby</title>
+<style>
+  :root {
+    --paper: #FAF6EF;
+    --ink: #2B2A25;
+    --ink-soft: #6B6A5F;
+    --sage: #5B7B62;
+    --sage-soft: #E4EAE2;
+    --rose: #C4715F;
+    --rose-soft: #F3E4DF;
+    --gold: #C99A3E;
+    --gold-soft: #F3E9D2;
+    --sky: #5C7A9E;
+    --sky-soft: #E1E8F0;
+    --line: #E4DECE;
+    --done-bg: #F1EEE3;
+    --danger: #B23B3B;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { max-width: 480px; margin: 0 auto; padding: 24px 18px 24px; min-height: 100vh; }
+  header h1 { font-size: 24px; font-weight: 700; margin: 0 0 3px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+
+  .nav {
+    display: flex; gap: 6px; margin: 18px 0 18px;
+    background: white; border: 1px solid var(--line); border-radius: 12px; padding: 4px;
+  }
+  .nav-btn {
+    flex: 1; text-align: center; padding: 9px 6px; border-radius: 9px;
+    font-size: 13px; font-weight: 600; color: var(--ink-soft); cursor: pointer; border: none; background: none;
+  }
+  .nav-btn.active { background: var(--ink); color: var(--paper); }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ---- Tasks ---- */
+  .task-list, .log-list { display: flex; flex-direction: column; gap: 8px; }
+  .task, .log-entry { display: flex; align-items: flex-start; gap: 12px; padding: 12px 13px;
+    background: white; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+  .task.done { background: var(--done-bg); border-color: var(--done-bg); }
+  .check { flex-shrink: 0; width: 21px; height: 21px; border-radius: 7px; border: 2px solid var(--ink-soft);
+    margin-top: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; background: white; }
+  .task.done .check { background: var(--sage); border-color: var(--sage); }
+  .check svg { width: 12px; height: 12px; opacity: 0; }
+  .task.done .check svg { opacity: 1; }
+  .task-body, .entry-body { flex: 1; min-width: 0; }
+  .task-text { font-size: 14.5px; line-height: 1.4; word-break: break-word; }
+  .task.done .task-text { text-decoration: line-through; color: var(--ink-soft); }
+  .task-meta, .entry-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+  .deadline { font-size: 11.5px; color: var(--ink-soft); }
+  .deadline.overdue { color: var(--danger); font-weight: 600; }
+  .deadline.today { color: var(--gold); font-weight: 600; }
+  .who { font-size: 11.5px; color: var(--ink-soft); }
+  .del { flex-shrink: 0; background: none; border: none; color: var(--ink-soft); opacity: 0.4; font-size: 17px;
+    line-height: 1; cursor: pointer; padding: 2px 4px; }
+  .empty { text-align: center; padding: 44px 16px; color: var(--ink-soft); font-size: 13.5px; }
+  .section-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--ink-soft); margin: 20px 0 8px 2px; }
+
+  .add-toggle { width: 100%; padding: 12px; border-radius: 12px; border: none; background: var(--ink);
+    color: var(--paper); font-size: 14.5px; font-weight: 600; cursor: pointer; margin-top: 14px; }
+  .add-form { display: none; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .add-form.open { display: flex; }
+  input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], select, textarea {
+    padding: 11px 13px; border-radius: 10px; border: 1.5px solid var(--line); font-size: 14.5px;
+    font-family: inherit; background: white; color: var(--ink); width: 100%; }
+  .add-row { display: flex; gap: 8px; }
+  .add-row > * { flex: 1; }
+  .add-actions { display: flex; gap: 8px; margin-top: 2px; }
+  .add-actions button { flex: 1; padding: 11px; border-radius: 10px; border: none; font-size: 13.5px;
+    font-weight: 600; cursor: pointer; }
+  .btn-save { color: white; }
+  .btn-save.chores-c { background: var(--sage); }
+  .btn-save.sleep-c { background: var(--sky); }
+  .btn-save.milk-c { background: var(--gold); }
+  .btn-save.food-c { background: var(--rose); }
+  .btn-cancel { background: transparent; color: var(--ink-soft); border: 1.5px solid var(--line) !important; }
+  .btn-delete { background: transparent; color: var(--danger); border: 1.5px solid var(--danger) !important; }
+
+  /* ---- Baby page ---- */
+  .summary { display: flex; gap: 8px; margin-bottom: 16px; }
+  .stat { flex: 1; background: white; border: 1px solid var(--line); border-radius: 12px; padding: 12px 10px; text-align: center; }
+  .stat .num { font-size: 19px; font-weight: 700; }
+  .stat .lbl { font-size: 10.5px; color: var(--ink-soft); margin-top: 2px; }
+
+  .quick-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+  .qbtn-wrap { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .qbtn { width: 100%; padding: 14px 6px; border-radius: 12px; border: none; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; color: white; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .qbtn .ic { font-size: 19px; }
+  .qbtn.sleep-c { background: var(--sky); }
+  .qbtn.milk-c { background: var(--gold); }
+  .qbtn.food-c { background: var(--rose); }
+  .qbtn.active-state { box-shadow: inset 0 0 0 3px rgba(0,0,0,0.15); }
+  .mini-edit { text-align: center; font-size: 11px; color: var(--ink-soft); background: none; border: none;
+    cursor: pointer; padding: 2px; text-decoration: underline; }
+  .quick-actions-block { margin-bottom: 16px; }
+
+  .status-banner { border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; display: flex;
+    align-items: center; justify-content: space-between; font-size: 13.5px; font-weight: 600; }
+  .status-banner.sleep-b { background: var(--sky-soft); border: 1px solid var(--sky); color: var(--sky); }
+  .status-banner.food-b { background: var(--rose-soft); border: 1px solid var(--rose); color: var(--rose); }
+  .status-banner button { border: none; padding: 7px 13px; border-radius: 8px; font-size: 12px; font-weight: 700;
+    cursor: pointer; color: white; }
+  .status-banner.sleep-b button { background: var(--sky); }
+  .status-banner.food-b button { background: var(--rose); }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(43,42,37,0.45); z-index: 50;
+    align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--paper); width: 100%; max-width: 480px; border-radius: 18px 18px 0 0;
+    padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); max-height: 85vh; overflow-y: auto; }
+  .modal h3 { margin: 0 0 14px; font-size: 17px; }
+  .field-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); margin: 10px 0 5px; }
+  .preset-row { display: flex; gap: 6px; margin-top: 6px; }
+  .preset { flex: 1; padding: 8px 4px; border-radius: 8px; border: 1.5px solid var(--line); background: white;
+    font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--ink); }
+
+  .entry-thumbs { display: flex; gap: 4px; flex-shrink: 0; }
+  .entry-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
+  .entry-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0; }
+  .entry-icon.sleep { background: var(--sky-soft); }
+  .entry-icon.milk { background: var(--gold-soft); }
+  .entry-icon.food { background: var(--rose-soft); }
+  .entry-title { font-size: 14px; font-weight: 600; }
+  .entry-time { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+
+  .loading, .error { text-align: center; padding: 34px 16px; color: var(--ink-soft); font-size: 13.5px; }
+  .error { color: var(--danger); }
+
+  /* ---- Dashboard / always-on view ---- */
+  .dash-clock { text-align: center; margin: 6px 0 16px; }
+  .dash-time { font-size: 48px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  .dash-date { font-size: 14px; color: var(--ink-soft); margin-top: 6px; }
+
+  .dash-summary { display: flex; gap: 8px; margin-bottom: 16px; }
+  .dash-stat { flex: 1; background: white; border: 1px solid var(--line); border-radius: 14px; padding: 14px 8px; text-align: center; }
+  .dash-stat .num { font-size: 22px; font-weight: 700; }
+  .dash-stat .lbl { font-size: 10.5px; color: var(--ink-soft); margin-top: 3px; }
+
+  .dash-section-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--ink-soft); margin: 20px 0 10px 2px; }
+
+  .dash-task { display: flex; align-items: center; gap: 14px; padding: 15px 16px; background: white;
+    border: 1px solid var(--line); border-radius: 14px; margin-bottom: 9px; cursor: pointer; }
+  .dash-task.done { background: var(--done-bg); border-color: var(--done-bg); }
+  .dash-check { flex-shrink: 0; width: 26px; height: 26px; border-radius: 9px; border: 2.5px solid var(--ink-soft);
+    cursor: pointer; display: flex; align-items: center; justify-content: center; background: white; }
+  .dash-task.done .dash-check { background: var(--sage); border-color: var(--sage); }
+  .dash-check svg { width: 15px; height: 15px; opacity: 0; }
+  .dash-task.done .dash-check svg { opacity: 1; }
+  .dash-task-text { font-size: 17px; font-weight: 600; line-height: 1.3; }
+  .dash-task.done .dash-task-text { text-decoration: line-through; color: var(--ink-soft); }
+  .dash-task-meta { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; }
+  .dash-task-meta.overdue { color: var(--danger); font-weight: 600; }
+  .dash-task-meta.today { color: var(--gold); font-weight: 600; }
+  .dash-empty { text-align: center; padding: 26px 16px; color: var(--ink-soft); font-size: 14px; }
+
+  /* ---- Mini one-tap logs ---- */
+  .mini-log-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+  .mini-log-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px;
+    border-radius: 12px; border: 1.5px solid var(--line); background: white; font-size: 10.5px; font-weight: 700;
+    color: var(--ink); cursor: pointer; }
+  .mini-log-btn .ic { font-size: 19px; }
+  .mini-log-btn:active { background: var(--done-bg); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>Home & Baby</h1>
+    <p>Shared between Mummy & Daddy, updates live.</p>
+  </header>
+
+  <div class="nav">
+    <button class="nav-btn active" data-page="today" onclick="setPage('today')">🖥️ Today</button>
+    <button class="nav-btn" data-page="tasks" onclick="setPage('tasks')">📋 Chores</button>
+    <button class="nav-btn" data-page="baby" onclick="setPage('baby')">🍼 Baby Log</button>
+  </div>
+
+  <!-- TODAY / DASHBOARD PAGE -->
+  <div class="page active" id="page-today">
+    <div class="dash-clock">
+      <div class="dash-time" id="dashTime">--:--</div>
+      <div class="dash-date" id="dashDate">—</div>
+    </div>
+
+    <div class="dash-summary">
+      <div class="dash-stat"><div class="num" id="dashSleep">0h</div><div class="lbl">Sleep today</div></div>
+      <div class="dash-stat"><div class="num" id="dashMilk">0ml</div><div class="lbl">Milk today</div></div>
+      <div class="dash-stat"><div class="num" id="dashMeals">0</div><div class="lbl">Meals today</div></div>
+    </div>
+
+    <div class="status-banner sleep-b" id="dashNapBanner" style="display:none;">
+      <span id="dashNapText"></span>
+      <button onclick="tapSleep()">Wake up</button>
+    </div>
+    <div class="status-banner food-b" id="dashFoodBanner" style="display:none;">
+      <span id="dashFoodText"></span>
+      <button onclick="triggerFoodCapture()">Mark finished</button>
+    </div>
+
+    <div class="quick-actions-block">
+      <div class="quick-actions">
+        <div class="qbtn-wrap">
+          <button class="qbtn sleep-c" id="dashSleepBtn" onclick="tapSleep()"><span class="ic">😴</span><span id="dashSleepLbl">Sleep</span></button>
+          <button class="mini-edit" onclick="openSleepManual()">Key in time</button>
+        </div>
+        <div class="qbtn-wrap">
+          <button class="qbtn milk-c" onclick="tapMilk()"><span class="ic">🍼</span><span>180ml</span></button>
+          <button class="mini-edit" onclick="openMilkManual()">Custom amount</button>
+        </div>
+        <div class="qbtn-wrap">
+          <button class="qbtn food-c" id="dashFoodBtn" onclick="triggerFoodCapture()"><span class="ic">🍽️</span><span id="dashFoodLbl">Food</span></button>
+          <button class="mini-edit" style="visibility:hidden;">·</button>
+        </div>
+      </div>
+      <div class="mini-log-grid">
+        <button class="mini-log-btn" onclick="tapSimple('shower')"><span class="ic">🚿</span>Shower</button>
+        <button class="mini-log-btn" onclick="tapSimple('poop')"><span class="ic">💩</span>Poop</button>
+        <button class="mini-log-btn" onclick="tapSimple('pee')"><span class="ic">💧</span>Pee</button>
+        <button class="mini-log-btn" onclick="tapSimple('diaper')"><span class="ic">🧷</span>Diaper</button>
+      </div>
+    </div>
+
+    <div class="dash-section-label">Today's chores</div>
+    <div id="dashTasksContent"><div class="loading">Loading…</div></div>
+    <button class="add-toggle" onclick="openTaskModal()">+ Add a task</button>
+  </div>
+
+  <!-- TASKS PAGE -->
+  <div class="page" id="page-tasks">
+    <div id="tasksContent"><div class="loading">Loading…</div></div>
+    <button class="add-toggle" onclick="openTaskModal()">+ Add a chore</button>
+  </div>
+
+  <!-- BABY PAGE -->
+  <div class="page" id="page-baby">
+    <div class="summary">
+      <div class="stat"><div class="num" id="statSleep">0h</div><div class="lbl">Sleep today</div></div>
+      <div class="stat"><div class="num" id="statMilk">0ml</div><div class="lbl">Milk today</div></div>
+      <div class="stat"><div class="num" id="statMeals">0</div><div class="lbl">Meals today</div></div>
+    </div>
+
+    <div class="status-banner sleep-b" id="napBanner" style="display:none;">
+      <span id="napText"></span>
+      <button onclick="tapSleep()">Wake up</button>
+    </div>
+    <div class="status-banner food-b" id="foodBanner" style="display:none;">
+      <span id="foodBannerText"></span>
+      <button onclick="triggerFoodCapture()">Mark finished</button>
+    </div>
+
+    <div class="quick-actions-block">
+      <div class="quick-actions">
+        <div class="qbtn-wrap">
+          <button class="qbtn sleep-c" id="babySleepBtn" onclick="tapSleep()"><span class="ic">😴</span><span id="babySleepLbl">Sleep</span></button>
+          <button class="mini-edit" onclick="openSleepManual()">Key in time</button>
+        </div>
+        <div class="qbtn-wrap">
+          <button class="qbtn milk-c" onclick="tapMilk()"><span class="ic">🍼</span><span>180ml</span></button>
+          <button class="mini-edit" onclick="openMilkManual()">Custom amount</button>
+        </div>
+        <div class="qbtn-wrap">
+          <button class="qbtn food-c" id="babyFoodBtn" onclick="triggerFoodCapture()"><span class="ic">🍽️</span><span id="babyFoodLbl">Food</span></button>
+          <button class="mini-edit" style="visibility:hidden;">·</button>
+        </div>
+      </div>
+      <div class="mini-log-grid">
+        <button class="mini-log-btn" onclick="tapSimple('shower')"><span class="ic">🚿</span>Shower</button>
+        <button class="mini-log-btn" onclick="tapSimple('poop')"><span class="ic">💩</span>Poop</button>
+        <button class="mini-log-btn" onclick="tapSimple('pee')"><span class="ic">💧</span>Pee</button>
+        <button class="mini-log-btn" onclick="tapSimple('diaper')"><span class="ic">🧷</span>Diaper</button>
+      </div>
+      <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:8px;" onclick="exportData()">⤓ Export all data (CSV)</button>
+      <button class="add-toggle" style="margin-top:10px; background: var(--rose);" onclick="openNoteModal()">📝 Add a note</button>
+    </div>
+
+    <div id="babyLogContent"><div class="loading">Loading…</div></div>
+
+    <div class="dash-section-label">📏 Growth</div>
+    <div class="summary">
+      <div class="stat"><div class="num" id="latestWeight">–</div><div class="lbl" id="latestWeightDate">No entries yet</div></div>
+      <div class="stat"><div class="num" id="latestHeight">–</div><div class="lbl" id="latestHeightDate">No entries yet</div></div>
+    </div>
+    <div id="growthContent"><div class="loading">Loading…</div></div>
+
+    <button class="add-toggle" onclick="toggleGrowthForm()">+ Add measurement</button>
+    <div class="add-form" id="growthForm">
+      <div class="field-label" style="margin-top:0;">Date</div>
+      <input type="date" id="growthDate">
+      <div class="add-row">
+        <div style="flex:1;">
+          <div class="field-label">Weight (kg) — optional</div>
+          <input type="number" id="growthWeight" step="0.01" min="0" placeholder="e.g. 5.2">
+        </div>
+        <div style="flex:1;">
+          <div class="field-label">Height (cm) — optional</div>
+          <input type="number" id="growthHeight" step="0.1" min="0" placeholder="e.g. 58">
+        </div>
+      </div>
+      <div class="add-actions">
+        <button class="btn-cancel" onclick="toggleGrowthForm()">Cancel</button>
+        <button class="btn-save chores-c" onclick="addGrowth()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NOTE MODAL (vaccine, eczema, anything free-text) -->
+<div class="modal-overlay" id="noteModalOverlay">
+  <div class="modal">
+    <h3>📝 Note</h3>
+    <div class="field-label" style="margin-top:0;">What's going on?</div>
+    <textarea id="noteText" rows="3" maxlength="500" placeholder="e.g. 6-month vaccine done, mild fever after"></textarea>
+    <div class="field-label">Photo (optional)</div>
+    <input type="file" id="noteFileInput" accept="image/*" onchange="previewNotePhoto()">
+    <img id="notePhotoPreview" class="photo-preview" onclick="if (pendingNotePhoto) openPhotoView(pendingNotePhoto)">
+    <div class="field-label">Time</div>
+    <input type="datetime-local" id="noteTime">
+    <div class="add-actions" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal('noteModalOverlay')">Cancel</button>
+      <button class="btn-save chores-c" onclick="saveNote()">Save</button>
+    </div>
+    <div class="add-actions" style="margin-top:8px;" id="noteDeleteRow"></div>
+  </div>
+</div>
+
+<!-- ADD TASK MODAL (shared by Today + Chores pages) -->
+<div class="modal-overlay" id="taskModalOverlay">
+  <div class="modal">
+    <h3>📋 Add a chore</h3>
+    <input type="text" id="taskText" placeholder="What needs doing?" maxlength="120">
+    <div class="add-row" style="margin-top:8px;">
+      <select id="taskWho">
+        <option value="">Either</option>
+        <option value="Mummy">Mummy</option>
+        <option value="Daddy">Daddy</option>
+      </select>
+      <input type="date" id="taskDeadline">
+    </div>
+    <div class="field-label">Repeat</div>
+    <select id="taskRepeat">
+      <option value="">Doesn't repeat</option>
+      <option value="weekly">Weekly</option>
+      <option value="monthly">Monthly</option>
+    </select>
+    <div class="add-actions" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal('taskModalOverlay')">Cancel</button>
+      <button class="btn-save chores-c" onclick="addTask()">Save chore</button>
+    </div>
+  </div>
+</div>
+
+<!-- hidden file input for food photos -->
+<input type="file" id="foodFileInput" accept="image/*" capture="environment" style="display:none;" onchange="handleFoodPhoto()">
+
+<!-- SLEEP MODAL -->
+<div class="modal-overlay" id="sleepModalOverlay">
+  <div class="modal">
+    <h3>😴 Sleep time</h3>
+    <div class="field-label">Fell asleep</div>
+    <input type="datetime-local" id="sleepStart">
+    <div class="field-label">Woke up (leave blank if still sleeping)</div>
+    <input type="datetime-local" id="sleepEnd">
+    <div class="add-actions" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal('sleepModalOverlay')">Cancel</button>
+      <button class="btn-save sleep-c" onclick="saveSleepModal()">Save</button>
+    </div>
+    <div class="add-actions" style="margin-top:8px;" id="sleepDeleteRow"></div>
+  </div>
+</div>
+
+<!-- MILK MODAL -->
+<div class="modal-overlay" id="milkModalOverlay">
+  <div class="modal">
+    <h3>🍼 Milk</h3>
+    <div class="field-label">Amount (ml)</div>
+    <input type="number" id="milkMl" min="0" step="10">
+    <div class="preset-row">
+      <button class="preset" onclick="setMl(120)">120ml</button>
+      <button class="preset" onclick="setMl(150)">150ml</button>
+      <button class="preset" onclick="setMl(180)">180ml</button>
+      <button class="preset" onclick="setMl(210)">210ml</button>
+    </div>
+    <div class="field-label">Time</div>
+    <input type="datetime-local" id="milkTime">
+    <div class="add-actions" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal('milkModalOverlay')">Cancel</button>
+      <button class="btn-save milk-c" onclick="saveMilkModal()">Save</button>
+    </div>
+    <div class="add-actions" style="margin-top:8px;" id="milkDeleteRow"></div>
+  </div>
+</div>
+
+<!-- FOOD TIME-EDIT MODAL (times only, photo taken via camera flow) -->
+<div class="modal-overlay" id="foodEditOverlay">
+  <div class="modal">
+    <h3>🍽️ Meal time</h3>
+    <div class="field-label">Started eating</div>
+    <input type="datetime-local" id="foodEditStart">
+    <div class="field-label">Finished (leave blank if still eating)</div>
+    <input type="datetime-local" id="foodEditEnd">
+    <div class="add-actions" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal('foodEditOverlay')">Cancel</button>
+      <button class="btn-save food-c" onclick="saveFoodEdit()">Save</button>
+    </div>
+    <div class="add-actions" style="margin-top:8px;">
+      <button class="btn-delete" onclick="deleteFoodEdit()">Delete this meal</button>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTO VIEW MODAL -->
+<div class="modal-overlay" id="photoViewOverlay" onclick="closeModal('photoViewOverlay')">
+  <div class="modal" style="padding:14px; background:transparent;" onclick="event.stopPropagation()">
+    <div id="photoViewBody"></div>
+    <button class="btn-cancel" style="width:100%; margin-top:10px; background:white;" onclick="closeModal('photoViewOverlay')">Close</button>
+  </div>
+</div>
+
+<!-- SIMPLE ONE-TAP LOG EDIT MODAL (shower/poop/pee/diaper) -->
+<div class="modal-overlay" id="simpleEditOverlay">
+  <div class="modal">
+    <h3 id="simpleEditTitle">Edit time</h3>
+    <div class="field-label">Time</div>
+    <input type="datetime-local" id="simpleEditTime">
+    <div class="add-actions" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal('simpleEditOverlay')">Cancel</button>
+      <button class="btn-save chores-c" onclick="saveSimpleEdit()">Save</button>
+    </div>
+    <div class="add-actions" style="margin-top:8px;">
+      <button class="btn-delete" onclick="deleteSimpleEdit()">Delete this entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- GROWTH EDIT MODAL -->
+<div class="modal-overlay" id="growthEditOverlay">
+  <div class="modal">
+    <h3>📏 Edit measurement</h3>
+    <div class="field-label" style="margin-top:0;">Date</div>
+    <input type="date" id="growthEditDate">
+    <div class="add-row">
+      <div style="flex:1;">
+        <div class="field-label">Weight (kg)</div>
+        <input type="number" id="growthEditWeight" step="0.01" min="0">
+      </div>
+      <div style="flex:1;">
+        <div class="field-label">Height (cm)</div>
+        <input type="number" id="growthEditHeight" step="0.1" min="0">
+      </div>
+    </div>
+    <div class="add-actions" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal('growthEditOverlay')">Cancel</button>
+      <button class="btn-save chores-c" onclick="saveGrowthEdit()">Save</button>
+    </div>
+    <div class="add-actions" style="margin-top:8px;">
+      <button class="btn-delete" onclick="deleteGrowthEdit()">Delete this entry</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Firebase-backed storage (replaces Claude's window.storage) ---------- */
+const FIREBASE_DB_URL = 'https://bb-he-app-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+window.storage = {
+  async get(key, shared) {
+    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json`);
+    if (!res.ok) throw new Error(`Firebase read failed: ${res.status}`);
+    const data = await res.json();
+    if (data === null) throw new Error('Key not found');
+    return { key, value: data, shared: !!shared };
+  },
+  async set(key, value, shared) {
+    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(value)
+    });
+    if (!res.ok) throw new Error(`Firebase write failed: ${res.status}`);
+    return { key, value, shared: !!shared };
+  },
+  async delete(key, shared) {
+    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json`, { method: 'DELETE' });
+    if (!res.ok) return null;
+    return { key, deleted: true, shared: !!shared };
+  },
+  async list(prefix, shared) {
+    return { keys: [], shared: !!shared };
+  }
+};
+
+const TASKS_KEY = 'household-tasks';
+const BABY_KEY = 'baby-logs';
+let tasks = [];
+let babyLogs = [];
+let tasksLoaded = false, babyLoaded = false;
+let tasksSaving = false, babySaving = false;
+let editingSleepId = null;
+let editingMilkId = null;
+let editingFoodId = null;
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function nowLocalInput() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+function timeLabel(dateStr) { return new Date(dateStr).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+function isToday(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr); const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
+function dayLabel(dateStr) {
+  const d = new Date(dateStr);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const that = new Date(d); that.setHours(0,0,0,0);
+  const diff = Math.round((today - that) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+function durationLabel(startStr, endStr) {
+  const ms = new Date(endStr) - new Date(startStr);
+  const mins = Math.round(ms / 60000);
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/* ---------- Nav ---------- */
+function setPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  document.querySelector(`[data-page="${p}"]`).classList.add('active');
+}
+
+/* ---------- Tasks (Chores) ---------- */
+async function loadTasks() {
+  try {
+    const result = await window.storage.get(TASKS_KEY, true);
+    tasks = result && result.value ? JSON.parse(result.value) : [];
+  } catch (e) { tasks = []; }
+  tasksLoaded = true;
+  renderTasks();
+}
+async function saveTasks() {
+  tasksSaving = true;
+  try {
+    await window.storage.set(TASKS_KEY, JSON.stringify(tasks), true);
+  } catch (e1) {
+    try {
+      await new Promise(r => setTimeout(r, 800));
+      await window.storage.set(TASKS_KEY, JSON.stringify(tasks), true);
+    } catch (e2) {
+      const msg = (e2 && e2.message) ? e2.message : String(e2);
+      document.getElementById('tasksContent').insertAdjacentHTML('afterbegin',
+        `<div class="error">Could not save: ${escapeHtml(msg)}</div>`);
+    }
+  } finally {
+    tasksSaving = false;
+  }
+}
+function openTaskModal() {
+  document.getElementById('taskText').value = '';
+  document.getElementById('taskWho').value = '';
+  document.getElementById('taskDeadline').value = '';
+  document.getElementById('taskRepeat').value = '';
+  openModal('taskModalOverlay');
+}
+async function addTask() {
+  const text = document.getElementById('taskText').value.trim();
+  if (!text) return;
+  const who = document.getElementById('taskWho').value;
+  const deadline = document.getElementById('taskDeadline').value;
+  const repeat = document.getElementById('taskRepeat').value;
+  tasks.push({ id: uid(), text, who, deadline: deadline || null, repeat: repeat || null, done: false, createdAt: Date.now() });
+  closeModal('taskModalOverlay');
+  renderTasks();
+  await saveTasks();
+}
+function addInterval(dateStr, repeat) {
+  const d = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+  if (repeat === 'weekly') d.setDate(d.getDate() + 7);
+  else if (repeat === 'monthly') d.setMonth(d.getMonth() + 1);
+  return d.toISOString().slice(0, 10);
+}
+async function toggleDone(id) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  const wasDone = t.done;
+  t.done = !t.done;
+  if (!wasDone && t.done && t.repeat) {
+    tasks.push({
+      id: uid(), text: t.text, who: t.who,
+      deadline: addInterval(t.deadline, t.repeat),
+      repeat: t.repeat, done: false, createdAt: Date.now()
+    });
+  }
+  renderTasks();
+  await saveTasks();
+}
+async function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  renderTasks();
+  await saveTasks();
+}
+function formatDeadline(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diffDays = Math.round((d - today) / 86400000);
+  const label = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  if (diffDays < 0) return { text: `Overdue · ${label}`, cls: 'overdue' };
+  if (diffDays === 0) return { text: `Today`, cls: 'today' };
+  if (diffDays === 1) return { text: `Tomorrow`, cls: '' };
+  return { text: label, cls: '' };
+}
+function taskRow(t) {
+  const dl = formatDeadline(t.deadline);
+  return `<div class="task ${t.done ? 'done' : ''}" onclick="toggleDone('${t.id}')">
+    <div class="check">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    </div>
+    <div class="task-body">
+      <div class="task-text">${escapeHtml(t.text)}</div>
+      <div class="task-meta">
+        ${dl ? `<span class="deadline ${dl.cls}">${dl.text}</span>` : ''}
+        ${t.who ? `<span class="who">${dl ? '· ' : ''}${escapeHtml(t.who)}</span>` : ''}
+        ${t.repeat ? `<span class="who">· 🔁 ${t.repeat === 'weekly' ? 'Weekly' : 'Monthly'}</span>` : ''}
+      </div>
+    </div>
+    <button class="del" onclick="event.stopPropagation(); deleteTask('${t.id}')">×</button>
+  </div>`;
+}
+function renderTasks() {
+  const content = document.getElementById('tasksContent');
+  if (!tasksLoaded) { content.innerHTML = '<div class="loading">Loading…</div>'; return; }
+  const pending = tasks.filter(t => !t.done).sort((a, b) => {
+    if (!a.deadline && !b.deadline) return a.createdAt - b.createdAt;
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return a.deadline.localeCompare(b.deadline);
+  });
+  const completed = tasks.filter(t => t.done).sort((a, b) => b.createdAt - a.createdAt);
+  if (pending.length === 0 && completed.length === 0) {
+    content.innerHTML = '<div class="empty">Nothing here yet. Add your first chore below 👇</div>';
+    renderToday();
+    return;
+  }
+  let html = '';
+  html += pending.length > 0
+    ? '<div class="task-list">' + pending.map(taskRow).join('') + '</div>'
+    : '<div class="empty">All caught up here 🎉</div>';
+  if (completed.length > 0) {
+    html += '<div class="section-label">Completed</div><div class="task-list">' + completed.map(taskRow).join('') + '</div>';
+  }
+  content.innerHTML = html;
+  renderToday();
+}
+
+/* ---------- Baby log ---------- */
+async function loadBaby() {
+  try {
+    const result = await window.storage.get(BABY_KEY, true);
+    babyLogs = result && result.value ? JSON.parse(result.value) : [];
+  } catch (e) { babyLogs = []; }
+  babyLoaded = true;
+  renderBaby();
+  archiveOldPhotos();
+}
+
+const PHOTO_RETENTION_DAYS = 30;
+async function archiveOldPhotos() {
+  const cutoff = Date.now() - PHOTO_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  let changed = false;
+  babyLogs.forEach(l => {
+    if (l.type === 'food' && (l.startPhoto || l.endPhoto)) {
+      const t = new Date(l.startTime).getTime();
+      if (t < cutoff) { l.startPhoto = null; l.endPhoto = null; changed = true; }
+    }
+  });
+  if (changed) { renderBaby(); await saveBaby(); }
+}
+
+function csvEscape(v) {
+  const s = String(v == null ? '' : v);
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+function exportData() {
+  const lines = [];
+  lines.push('=== CHORES ===');
+  lines.push(['Task', 'Who', 'Deadline', 'Done'].map(csvEscape).join(','));
+  tasks.forEach(t => {
+    lines.push([t.text, t.who || '', t.deadline || '', t.done ? 'Yes' : 'No'].map(csvEscape).join(','));
+  });
+  lines.push('');
+  lines.push('=== BABY LOG (photos not included — export is text/time data only) ===');
+  lines.push(['Type', 'Start', 'End', 'Detail'].map(csvEscape).join(','));
+  const sorted = [...babyLogs].sort((a, b) => new Date(getLogTime(a)) - new Date(getLogTime(b)));
+  sorted.forEach(l => {
+    if (l.type === 'sleep') lines.push(['Sleep', l.start, l.end || '', ''].map(csvEscape).join(','));
+    else if (l.type === 'milk') lines.push(['Milk', l.time, '', `${l.ml}ml`].map(csvEscape).join(','));
+    else if (l.type === 'food') lines.push(['Food', l.startTime, l.endTime || '', l.endPhoto || l.endTime ? 'Finished' : 'Started'].map(csvEscape).join(','));
+    else if (SIMPLE_TYPES[l.type]) lines.push([SIMPLE_TYPES[l.type].label, l.time, '', ''].map(csvEscape).join(','));
+    else if (l.type === 'note') lines.push(['Note', l.time, '', l.text].map(csvEscape).join(','));
+  });
+  const csv = lines.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `home-baby-export-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+async function saveBaby() {
+  babySaving = true;
+  try {
+    await window.storage.set(BABY_KEY, JSON.stringify(babyLogs), true);
+  } catch (e1) {
+    try {
+      await new Promise(r => setTimeout(r, 800));
+      await window.storage.set(BABY_KEY, JSON.stringify(babyLogs), true);
+    } catch (e2) {
+      const msg = (e2 && e2.message) ? e2.message : String(e2);
+      document.getElementById('babyLogContent').insertAdjacentHTML('afterbegin',
+        `<div class="error">Could not save: ${escapeHtml(msg)}</div>`);
+    }
+  } finally {
+    babySaving = false;
+  }
+}
+
+/* ----- Sleep toggle + manual ----- */
+async function tapSleep() {
+  const open = babyLogs.find(l => l.type === 'sleep' && l.start && !l.end);
+  if (open) { open.end = nowLocalInput(); }
+  else { babyLogs.push({ id: uid(), type: 'sleep', start: nowLocalInput(), end: null, createdAt: Date.now() }); }
+  renderBaby();
+  await saveBaby();
+}
+function openSleepManual(id) {
+  editingSleepId = id || null;
+  const delRow = document.getElementById('sleepDeleteRow');
+  if (id) {
+    const e = babyLogs.find(l => l.id === id);
+    document.getElementById('sleepStart').value = e.start;
+    document.getElementById('sleepEnd').value = e.end || '';
+    delRow.innerHTML = '<button class="btn-delete" style="width:100%;" onclick="deleteSleepModal()">Delete this entry</button>';
+  } else {
+    document.getElementById('sleepStart').value = nowLocalInput();
+    document.getElementById('sleepEnd').value = '';
+    delRow.innerHTML = '';
+  }
+  openModal('sleepModalOverlay');
+}
+async function saveSleepModal() {
+  const start = document.getElementById('sleepStart').value;
+  const end = document.getElementById('sleepEnd').value;
+  if (!start) return;
+  if (editingSleepId) {
+    const e = babyLogs.find(l => l.id === editingSleepId);
+    e.start = start; e.end = end || null;
+  } else {
+    babyLogs.push({ id: uid(), type: 'sleep', start, end: end || null, createdAt: Date.now() });
+  }
+  closeModal('sleepModalOverlay');
+  renderBaby();
+  await saveBaby();
+}
+async function deleteSleepModal() {
+  babyLogs = babyLogs.filter(l => l.id !== editingSleepId);
+  closeModal('sleepModalOverlay');
+  renderBaby();
+  await saveBaby();
+}
+
+/* ----- Milk quick + custom ----- */
+async function tapMilk() {
+  babyLogs.push({ id: uid(), type: 'milk', ml: 180, time: nowLocalInput(), createdAt: Date.now() });
+  renderBaby();
+  await saveBaby();
+}
+function setMl(v) { document.getElementById('milkMl').value = v; }
+function openMilkManual(id) {
+  editingMilkId = id || null;
+  const delRow = document.getElementById('milkDeleteRow');
+  if (id) {
+    const e = babyLogs.find(l => l.id === id);
+    document.getElementById('milkMl').value = e.ml;
+    document.getElementById('milkTime').value = e.time;
+    delRow.innerHTML = '<button class="btn-delete" style="width:100%;" onclick="deleteMilkModal()">Delete this entry</button>';
+  } else {
+    document.getElementById('milkMl').value = 180;
+    document.getElementById('milkTime').value = nowLocalInput();
+    delRow.innerHTML = '';
+  }
+  openModal('milkModalOverlay');
+}
+async function saveMilkModal() {
+  const ml = parseInt(document.getElementById('milkMl').value, 10);
+  const time = document.getElementById('milkTime').value;
+  if (!ml || !time) return;
+  if (editingMilkId) {
+    const e = babyLogs.find(l => l.id === editingMilkId);
+    e.ml = ml; e.time = time;
+  } else {
+    babyLogs.push({ id: uid(), type: 'milk', ml, time, createdAt: Date.now() });
+  }
+  closeModal('milkModalOverlay');
+  renderBaby();
+  await saveBaby();
+}
+async function deleteMilkModal() {
+  babyLogs = babyLogs.filter(l => l.id !== editingMilkId);
+  closeModal('milkModalOverlay');
+  renderBaby();
+  await saveBaby();
+}
+
+/* ----- Food: photo-only start/finish toggle ----- */
+let pendingFoodAction = null; // {mode:'start'} or {mode:'end', id}
+function triggerFoodCapture() {
+  const ongoing = babyLogs.find(l => l.type === 'food' && l.startPhoto && !l.endPhoto);
+  pendingFoodAction = ongoing ? { mode: 'end', id: ongoing.id } : { mode: 'start' };
+  document.getElementById('foodFileInput').value = '';
+  document.getElementById('foodFileInput').click();
+}
+function compressFile(file, callback) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 480;
+      const scale = Math.min(1, maxW / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      callback(canvas.toDataURL('image/jpeg', 0.5));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function handleFoodPhoto() {
+  const file = document.getElementById('foodFileInput').files[0];
+  if (!file || !pendingFoodAction) return;
+  compressFile(file, async (dataUrl) => {
+    if (pendingFoodAction.mode === 'start') {
+      babyLogs.push({ id: uid(), type: 'food', startTime: nowLocalInput(), startPhoto: dataUrl,
+        endTime: null, endPhoto: null, createdAt: Date.now() });
+    } else {
+      const e = babyLogs.find(l => l.id === pendingFoodAction.id);
+      if (e) { e.endTime = nowLocalInput(); e.endPhoto = dataUrl; }
+    }
+    pendingFoodAction = null;
+    renderBaby();
+    await saveBaby();
+  });
+}
+function openFoodEdit(id) {
+  editingFoodId = id;
+  const e = babyLogs.find(l => l.id === id);
+  document.getElementById('foodEditStart').value = e.startTime;
+  document.getElementById('foodEditEnd').value = e.endTime || '';
+  openModal('foodEditOverlay');
+}
+async function saveFoodEdit() {
+  const e = babyLogs.find(l => l.id === editingFoodId);
+  if (!e) return;
+  e.startTime = document.getElementById('foodEditStart').value;
+  e.endTime = document.getElementById('foodEditEnd').value || null;
+  closeModal('foodEditOverlay');
+  renderBaby();
+  await saveBaby();
+}
+async function deleteFoodEdit() {
+  babyLogs = babyLogs.filter(l => l.id !== editingFoodId);
+  closeModal('foodEditOverlay');
+  renderBaby();
+  await saveBaby();
+}
+
+async function deleteBabyLog(id) {
+  babyLogs = babyLogs.filter(l => l.id !== id);
+  renderBaby();
+  await saveBaby();
+}
+
+/* ----- Simple one-tap logs: shower / poop / pee / diaper ----- */
+const SIMPLE_TYPES = {
+  shower: { icon: '🚿', label: 'Shower' },
+  poop: { icon: '💩', label: 'Poop' },
+  pee: { icon: '💧', label: 'Pee' },
+  diaper: { icon: '🧷', label: 'Diaper change' }
+};
+let editingSimpleId = null;
+async function tapSimple(type) {
+  babyLogs.push({ id: uid(), type, time: nowLocalInput(), createdAt: Date.now() });
+  renderBaby();
+  await saveBaby();
+}
+function openSimpleEdit(id) {
+  editingSimpleId = id;
+  const e = babyLogs.find(l => l.id === id);
+  document.getElementById('simpleEditTitle').textContent = `${SIMPLE_TYPES[e.type].icon} ${SIMPLE_TYPES[e.type].label}`;
+  document.getElementById('simpleEditTime').value = e.time;
+  openModal('simpleEditOverlay');
+}
+async function saveSimpleEdit() {
+  const e = babyLogs.find(l => l.id === editingSimpleId);
+  if (!e) return;
+  e.time = document.getElementById('simpleEditTime').value;
+  closeModal('simpleEditOverlay');
+  renderBaby();
+  await saveBaby();
+}
+async function deleteSimpleEdit() {
+  babyLogs = babyLogs.filter(l => l.id !== editingSimpleId);
+  closeModal('simpleEditOverlay');
+  renderBaby();
+  await saveBaby();
+}
+
+/* ----- Notes (vaccine, eczema, anything free-text) ----- */
+let editingNoteId = null;
+let pendingNotePhoto = null;
+function openNoteModal(id) {
+  editingNoteId = id || null;
+  const delRow = document.getElementById('noteDeleteRow');
+  const preview = document.getElementById('notePhotoPreview');
+  document.getElementById('noteFileInput').value = '';
+  if (id) {
+    const e = babyLogs.find(l => l.id === id);
+    document.getElementById('noteText').value = e.text;
+    document.getElementById('noteTime').value = e.time;
+    pendingNotePhoto = e.photo || null;
+    if (e.photo) { preview.src = e.photo; preview.classList.add('show'); } else { preview.classList.remove('show'); }
+    delRow.innerHTML = '<button class="btn-delete" style="width:100%;" onclick="deleteNoteModal()">Delete this note</button>';
+  } else {
+    document.getElementById('noteText').value = '';
+    document.getElementById('noteTime').value = nowLocalInput();
+    pendingNotePhoto = null;
+    preview.classList.remove('show');
+    delRow.innerHTML = '';
+  }
+  openModal('noteModalOverlay');
+}
+function previewNotePhoto() {
+  const file = document.getElementById('noteFileInput').files[0];
+  if (!file) return;
+  compressFile(file, (dataUrl) => {
+    pendingNotePhoto = dataUrl;
+    const preview = document.getElementById('notePhotoPreview');
+    preview.src = dataUrl;
+    preview.classList.add('show');
+  });
+}
+async function saveNote() {
+  const text = document.getElementById('noteText').value.trim();
+  const time = document.getElementById('noteTime').value;
+  if (!text || !time) return;
+  if (editingNoteId) {
+    const e = babyLogs.find(l => l.id === editingNoteId);
+    e.text = text; e.time = time; e.photo = pendingNotePhoto;
+  } else {
+    babyLogs.push({ id: uid(), type: 'note', text, photo: pendingNotePhoto, time, createdAt: Date.now() });
+  }
+  closeModal('noteModalOverlay');
+  renderBaby();
+  await saveBaby();
+}
+async function deleteNoteModal() {
+  babyLogs = babyLogs.filter(l => l.id !== editingNoteId);
+  closeModal('noteModalOverlay');
+  renderBaby();
+  await saveBaby();
+}
+
+function openPhotoView(url) {
+  document.getElementById('photoViewBody').innerHTML =
+    `<img src="${url}" style="width:100%; border-radius:14px; display:block;">`;
+  openModal('photoViewOverlay');
+}
+function openFoodPhotoView(id) {
+  const e = babyLogs.find(l => l.id === id);
+  if (!e) return;
+  if (!e.startPhoto && !e.endPhoto) { openFoodEdit(id); return; }
+  let html = '';
+  if (e.startPhoto) {
+    html += `<div style="text-align:center;color:white;font-size:12px;font-weight:600;margin-bottom:6px;">What he ate</div>
+      <img src="${e.startPhoto}" style="width:100%; border-radius:14px; display:block;">`;
+  }
+  if (e.endPhoto) {
+    html += `<div style="text-align:center;color:white;font-size:12px;font-weight:600;margin:12px 0 6px;">Finished</div>
+      <img src="${e.endPhoto}" style="width:100%; border-radius:14px; display:block;">`;
+  }
+  document.getElementById('photoViewBody').innerHTML = html;
+  openModal('photoViewOverlay');
+}
+
+function babyLogRow(l) {
+  if (l.type === 'sleep') {
+    const dur = l.end ? durationLabel(l.start, l.end) : 'ongoing';
+    return `<div class="log-entry" onclick="openSleepManual('${l.id}')">
+      <div class="entry-icon sleep">😴</div>
+      <div class="entry-body">
+        <div class="entry-title">Sleep · ${dur}</div>
+        <div class="entry-time">${timeLabel(l.start)}${l.end ? ' – ' + timeLabel(l.end) : ' (still napping)'}</div>
+      </div>
+      <button class="del" onclick="event.stopPropagation(); deleteBabyLog('${l.id}')">×</button>
+    </div>`;
+  }
+  if (l.type === 'milk') {
+    return `<div class="log-entry" onclick="openMilkManual('${l.id}')">
+      <div class="entry-icon milk">🍼</div>
+      <div class="entry-body">
+        <div class="entry-title">${l.ml}ml milk</div>
+        <div class="entry-time">${timeLabel(l.time)}</div>
+      </div>
+      <button class="del" onclick="event.stopPropagation(); deleteBabyLog('${l.id}')">×</button>
+    </div>`;
+  }
+  if (SIMPLE_TYPES[l.type]) {
+    const info = SIMPLE_TYPES[l.type];
+    return `<div class="log-entry" onclick="openSimpleEdit('${l.id}')">
+      <div class="entry-icon" style="background: var(--sage-soft);">${info.icon}</div>
+      <div class="entry-body">
+        <div class="entry-title">${info.label}</div>
+        <div class="entry-time">${timeLabel(l.time)}</div>
+      </div>
+      <button class="del" onclick="event.stopPropagation(); deleteBabyLog('${l.id}')">×</button>
+    </div>`;
+  }
+  if (l.type === 'note') {
+    const preview = l.text.length > 60 ? l.text.slice(0, 60) + '…' : l.text;
+    return `<div class="log-entry" onclick="openNoteModal('${l.id}')">
+      ${l.photo ? `<img class="entry-thumb" src="${l.photo}">` : `<div class="entry-icon" style="background: var(--rose-soft);">📝</div>`}
+      <div class="entry-body">
+        <div class="entry-title">${escapeHtml(preview)}</div>
+        <div class="entry-time">${timeLabel(l.time)}</div>
+      </div>
+      <button class="del" onclick="event.stopPropagation(); deleteBabyLog('${l.id}')">×</button>
+    </div>`;
+  }
+  const status = l.endPhoto ? 'Finished' : (l.endTime ? 'Finished' : 'Still eating');
+  const hasPhotos = l.startPhoto || l.endPhoto;
+  const thumbs = hasPhotos
+    ? `<div class="entry-thumbs">
+        ${l.startPhoto ? `<img class="entry-thumb" src="${l.startPhoto}">` : ''}
+        ${l.endPhoto ? `<img class="entry-thumb" src="${l.endPhoto}">` : ''}
+      </div>`
+    : `<div class="entry-icon food">🍽️</div>`;
+  return `<div class="log-entry" onclick="${hasPhotos ? `openFoodPhotoView('${l.id}')` : `openFoodEdit('${l.id}')`}">
+    ${thumbs}
+    <div class="entry-body">
+      <div class="entry-title">Meal · ${status}${hasPhotos ? '' : ' (photo archived after 30 days)'}</div>
+      <div class="entry-time">${timeLabel(l.startTime)}${l.endTime ? ' – ' + timeLabel(l.endTime) : ''}</div>
+    </div>
+    <button class="del" style="opacity:0.5;" onclick="event.stopPropagation(); openFoodEdit('${l.id}')">✏️</button>
+    <button class="del" onclick="event.stopPropagation(); deleteBabyLog('${l.id}')">×</button>
+  </div>`;
+}
+
+function computeTodayStats() {
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart); todayEnd.setDate(todayEnd.getDate() + 1);
+  let sleepMins = 0, milkMl = 0, meals = 0;
+  babyLogs.forEach(l => {
+    if (l.type === 'sleep') {
+      const s = new Date(l.start);
+      const e = l.end ? new Date(l.end) : new Date();
+      const overlapStart = s < todayStart ? todayStart : s;
+      const overlapEnd = e > todayEnd ? todayEnd : e;
+      if (overlapEnd > overlapStart) sleepMins += (overlapEnd - overlapStart) / 60000;
+    }
+    if (l.type === 'milk' && isToday(l.time)) milkMl += l.ml;
+    if (l.type === 'food' && isToday(l.startTime)) meals += 1;
+  });
+  return { sleepMins, milkMl, meals };
+}
+
+function getLogTime(l) {
+  if (l.type === 'sleep') return l.start;
+  if (l.type === 'food') return l.startTime;
+  return l.time; // milk, shower, poop, pee, diaper
+}
+
+function renderBaby() {
+  const content = document.getElementById('babyLogContent');
+  if (!babyLoaded) { content.innerHTML = '<div class="loading">Loading…</div>'; renderToday(); return; }
+
+  const { sleepMins, milkMl, meals } = computeTodayStats();
+  document.getElementById('statSleep').textContent = sleepMins >= 60
+    ? `${Math.floor(sleepMins/60)}h ${Math.round(sleepMins%60)}m` : `${Math.round(sleepMins)}m`;
+  document.getElementById('statMilk').textContent = `${milkMl}ml`;
+  document.getElementById('statMeals').textContent = meals;
+
+  const openNap = babyLogs.find(l => l.type === 'sleep' && l.start && !l.end);
+  const napBanner = document.getElementById('napBanner');
+  if (openNap) {
+    napBanner.style.display = 'flex';
+    document.getElementById('napText').textContent = `😴 Napping since ${timeLabel(openNap.start)}`;
+  } else { napBanner.style.display = 'none'; }
+  document.getElementById('babySleepLbl').textContent = openNap ? 'Wake' : 'Sleep';
+  document.getElementById('babySleepBtn').classList.toggle('active-state', !!openNap);
+
+  const openMeal = babyLogs.find(l => l.type === 'food' && l.startPhoto && !l.endPhoto);
+  const foodBanner = document.getElementById('foodBanner');
+  if (openMeal) {
+    foodBanner.style.display = 'flex';
+    document.getElementById('foodBannerText').textContent = `🍽️ Eating since ${timeLabel(openMeal.startTime)}`;
+  } else { foodBanner.style.display = 'none'; }
+  document.getElementById('babyFoodLbl').textContent = openMeal ? 'Finished' : 'Food';
+  document.getElementById('babyFoodBtn').classList.toggle('active-state', !!openMeal);
+
+  if (babyLogs.length === 0) {
+    content.innerHTML = '<div class="empty">No entries yet — log sleep, milk or food above 👆</div>';
+    renderToday();
+    return;
+  }
+  const sorted = [...babyLogs].sort((a, b) => new Date(getLogTime(b)) - new Date(getLogTime(a)));
+  const groups = {};
+  sorted.forEach(l => {
+    const label = dayLabel(getLogTime(l));
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(l);
+  });
+  let html = '';
+  Object.keys(groups).forEach(label => {
+    html += `<div class="section-label">${label}</div><div class="log-list">${groups[label].map(babyLogRow).join('')}</div>`;
+  });
+  content.innerHTML = html;
+  renderToday();
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('dashTime').textContent = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('dashDate').textContent = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+function isDeadlineToday(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  return d.getTime() === today.getTime();
+}
+function isOverdue(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  return d.getTime() < today.getTime();
+}
+function dashTaskRow(t) {
+  const dl = formatDeadline(t.deadline);
+  return `<div class="dash-task ${t.done ? 'done' : ''}" onclick="toggleDone('${t.id}')">
+    <div class="dash-check">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    </div>
+    <div style="flex:1;">
+      <div class="dash-task-text">${escapeHtml(t.text)}</div>
+      ${dl ? `<div class="dash-task-meta ${dl.cls}">${dl.text}${t.who ? ' · ' + escapeHtml(t.who) : ''}${t.repeat ? ' · 🔁' : ''}</div>` : (t.who || t.repeat ? `<div class="dash-task-meta">${t.who ? escapeHtml(t.who) : ''}${t.repeat ? ' 🔁' : ''}</div>` : '')}
+    </div>
+  </div>`;
+}
+function renderToday() {
+  if (!tasksLoaded || !babyLoaded) return;
+  updateClock();
+
+  const relevant = tasks.filter(t => !t.done && (isDeadlineToday(t.deadline) || isOverdue(t.deadline) || !t.deadline));
+  relevant.sort((a, b) => {
+    if (!a.deadline && !b.deadline) return a.createdAt - b.createdAt;
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return a.deadline.localeCompare(b.deadline);
+  });
+  const content = document.getElementById('dashTasksContent');
+  content.innerHTML = relevant.length === 0
+    ? '<div class="dash-empty">Nothing pending — all clear 🎉</div>'
+    : relevant.map(dashTaskRow).join('');
+
+  const { sleepMins, milkMl, meals } = computeTodayStats();
+  document.getElementById('dashSleep').textContent = sleepMins >= 60
+    ? `${Math.floor(sleepMins/60)}h ${Math.round(sleepMins%60)}m` : `${Math.round(sleepMins)}m`;
+  document.getElementById('dashMilk').textContent = `${milkMl}ml`;
+  document.getElementById('dashMeals').textContent = meals;
+
+  const openNap = babyLogs.find(l => l.type === 'sleep' && l.start && !l.end);
+  const dashNapBanner = document.getElementById('dashNapBanner');
+  if (openNap) {
+    dashNapBanner.style.display = 'flex';
+    document.getElementById('dashNapText').textContent = `😴 Napping since ${timeLabel(openNap.start)}`;
+  } else { dashNapBanner.style.display = 'none'; }
+  document.getElementById('dashSleepLbl').textContent = openNap ? 'Wake' : 'Sleep';
+  document.getElementById('dashSleepBtn').classList.toggle('active-state', !!openNap);
+
+  const openMeal = babyLogs.find(l => l.type === 'food' && l.startPhoto && !l.endPhoto);
+  const dashFoodBanner = document.getElementById('dashFoodBanner');
+  if (openMeal) {
+    dashFoodBanner.style.display = 'flex';
+    document.getElementById('dashFoodText').textContent = `🍽️ Eating since ${timeLabel(openMeal.startTime)}`;
+  } else { dashFoodBanner.style.display = 'none'; }
+  document.getElementById('dashFoodLbl').textContent = openMeal ? 'Finished' : 'Food';
+  document.getElementById('dashFoodBtn').classList.toggle('active-state', !!openMeal);
+}
+
+/* ---------- Growth (weight & height) ---------- */
+const GROWTH_KEY = 'growth-log';
+let growthLogs = [];
+let growthLoaded = false, growthSaving = false;
+let editingGrowthId = null;
+
+async function loadGrowth() {
+  try {
+    const result = await window.storage.get(GROWTH_KEY, true);
+    growthLogs = result && result.value ? JSON.parse(result.value) : [];
+  } catch (e) { growthLogs = []; }
+  growthLoaded = true;
+  renderGrowth();
+}
+async function saveGrowth() {
+  growthSaving = true;
+  try {
+    await window.storage.set(GROWTH_KEY, JSON.stringify(growthLogs), true);
+  } catch (e1) {
+    try {
+      await new Promise(r => setTimeout(r, 800));
+      await window.storage.set(GROWTH_KEY, JSON.stringify(growthLogs), true);
+    } catch (e2) {
+      const msg = (e2 && e2.message) ? e2.message : String(e2);
+      document.getElementById('growthContent').insertAdjacentHTML('afterbegin',
+        `<div class="error">Could not save: ${escapeHtml(msg)}</div>`);
+    }
+  } finally {
+    growthSaving = false;
+  }
+}
+function toggleGrowthForm() {
+  const form = document.getElementById('growthForm');
+  form.classList.toggle('open');
+  if (form.classList.contains('open')) {
+    document.getElementById('growthDate').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('growthWeight').value = '';
+    document.getElementById('growthHeight').value = '';
+  }
+}
+async function addGrowth() {
+  const date = document.getElementById('growthDate').value;
+  const weightRaw = document.getElementById('growthWeight').value;
+  const heightRaw = document.getElementById('growthHeight').value;
+  if (!date || (!weightRaw && !heightRaw)) return;
+  growthLogs.push({
+    id: uid(), date,
+    weight: weightRaw ? parseFloat(weightRaw) : null,
+    height: heightRaw ? parseFloat(heightRaw) : null,
+    createdAt: Date.now()
+  });
+  toggleGrowthForm();
+  renderGrowth();
+  await saveGrowth();
+}
+function openGrowthEdit(id) {
+  editingGrowthId = id;
+  const e = growthLogs.find(l => l.id === id);
+  document.getElementById('growthEditDate').value = e.date;
+  document.getElementById('growthEditWeight').value = e.weight != null ? e.weight : '';
+  document.getElementById('growthEditHeight').value = e.height != null ? e.height : '';
+  openModal('growthEditOverlay');
+}
+async function saveGrowthEdit() {
+  const e = growthLogs.find(l => l.id === editingGrowthId);
+  if (!e) return;
+  e.date = document.getElementById('growthEditDate').value;
+  const w = document.getElementById('growthEditWeight').value;
+  const h = document.getElementById('growthEditHeight').value;
+  e.weight = w ? parseFloat(w) : null;
+  e.height = h ? parseFloat(h) : null;
+  closeModal('growthEditOverlay');
+  renderGrowth();
+  await saveGrowth();
+}
+async function deleteGrowthEdit() {
+  growthLogs = growthLogs.filter(l => l.id !== editingGrowthId);
+  closeModal('growthEditOverlay');
+  renderGrowth();
+  await saveGrowth();
+}
+function growthRow(e) {
+  const d = new Date(e.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const parts = [];
+  if (e.weight != null) parts.push(`${e.weight}kg`);
+  if (e.height != null) parts.push(`${e.height}cm`);
+  return `<div class="log-entry" onclick="openGrowthEdit('${e.id}')">
+    <div class="entry-icon" style="background: var(--sage-soft);">📏</div>
+    <div class="entry-body">
+      <div class="entry-title">${parts.join(' · ')}</div>
+      <div class="entry-time">${d}</div>
+    </div>
+    <button class="del" onclick="event.stopPropagation(); deleteGrowthRow('${e.id}')">×</button>
+  </div>`;
+}
+async function deleteGrowthRow(id) {
+  growthLogs = growthLogs.filter(l => l.id !== id);
+  renderGrowth();
+  await saveGrowth();
+}
+function renderGrowth() {
+  const content = document.getElementById('growthContent');
+  if (!growthLoaded) { content.innerHTML = '<div class="loading">Loading…</div>'; return; }
+
+  const byWeight = [...growthLogs].filter(l => l.weight != null).sort((a, b) => b.date.localeCompare(a.date));
+  const byHeight = [...growthLogs].filter(l => l.height != null).sort((a, b) => b.date.localeCompare(a.date));
+  const wLabel = byWeight[0]
+    ? new Date(byWeight[0].date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    : 'No entries yet';
+  const hLabel = byHeight[0]
+    ? new Date(byHeight[0].date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    : 'No entries yet';
+  document.getElementById('latestWeight').textContent = byWeight[0] ? `${byWeight[0].weight}kg` : '–';
+  document.getElementById('latestWeightDate').textContent = wLabel;
+  document.getElementById('latestHeight').textContent = byHeight[0] ? `${byHeight[0].height}cm` : '–';
+  document.getElementById('latestHeightDate').textContent = hLabel;
+
+  if (growthLogs.length === 0) {
+    content.innerHTML = '<div class="empty">No measurements logged yet</div>';
+    return;
+  }
+  const sorted = [...growthLogs].sort((a, b) => b.date.localeCompare(a.date));
+  content.innerHTML = '<div class="log-list">' + sorted.map(growthRow).join('') + '</div>';
+}
+
+updateClock();
+setInterval(updateClock, 1000);
+loadTasks();
+loadBaby();
+loadGrowth();
+setInterval(() => { if (!tasksSaving) loadTasks(); if (!babySaving) loadBaby(); if (!growthSaving) loadGrowth(); }, 8000);
+</script>
+
+</body>
+</html>
