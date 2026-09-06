@@ -861,7 +861,12 @@ function renderTasks() {
     ? '<div class="task-list">' + pending.map(taskRow).join('') + '</div>'
     : '<div class="empty">All caught up here 🎉</div>';
   if (completed.length > 0) {
-    html += '<div class="section-label">Completed</div><div class="task-list">' + completed.map(taskRow).join('') + '</div>';
+    const recentCompleted = completed.slice(0, 3);
+    const archived = completed.slice(3);
+    html += '<div class="section-label">Completed</div><div class="task-list">' + recentCompleted.map(taskRow).join('') + '</div>';
+    if (archived.length > 0) {
+      html += '<div class="section-label">Archived</div><div class="task-list">' + archived.map(taskRow).join('') + '</div>';
+    }
   }
   content.innerHTML = html;
   renderToday();
