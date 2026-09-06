@@ -74,7 +74,7 @@
     color: var(--paper); font-size: 14.5px; font-weight: 600; cursor: pointer; margin-top: 14px; }
   .add-form { display: none; flex-direction: column; gap: 8px; margin-top: 10px; }
   .add-form.open { display: flex; }
-  input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], input[type="email"], input[type="password"], select, textarea {
+  input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], input[type="email"], input[type="password"], input[type="time"], select, textarea {
     padding: 11px 13px; border-radius: 10px; border: 1.5px solid var(--line); font-size: 14.5px;
     font-family: inherit; background: white; color: var(--ink); width: 100%; }
   .add-row { display: flex; gap: 8px; }
@@ -191,6 +191,28 @@
     display: none; align-items: center; justify-content: center;
     padding: 0 4px; box-shadow: 0 0 0 2px var(--paper); line-height: 1;
   }
+
+  /* ---- Calendar ---- */
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 14px; }
+  .cal-nav-btn { background: white; border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 16px;
+    font-size: 16px; font-weight: 700; cursor: pointer; color: var(--ink); }
+  .cal-title { font-size: 16px; font-weight: 700; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 20px; }
+  .cal-dow { text-align: center; font-size: 10px; font-weight: 700; color: var(--ink-soft); padding-bottom: 4px; }
+  .cal-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 10px; border: 1.5px solid var(--line); background: white; cursor: pointer; font-size: 12.5px;
+    font-weight: 600; position: relative; gap: 2px; }
+  .cal-day.empty { border: none; background: none; cursor: default; }
+  .cal-day.today { border-color: var(--ink); border-width: 2px; }
+  .cal-day-dots { display: flex; gap: 2px; }
+  .cal-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .cal-dot.baby { background: var(--rose); }
+  .cal-dot.daddy { background: var(--sky); }
+  .cal-dot.mummy { background: var(--gold); }
+  .person-tag { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .person-tag.baby { background: var(--rose-soft); color: var(--rose); }
+  .person-tag.daddy { background: var(--sky-soft); color: var(--sky); }
+  .person-tag.mummy { background: var(--gold-soft); color: var(--gold); }
 </style>
 </head>
 <body>
@@ -222,6 +244,7 @@
     <button class="nav-btn active" data-page="today" onclick="setPage('today')">🖥️ Today</button>
     <button class="nav-btn" data-page="tasks" onclick="setPage('tasks')">📋 Chores</button>
     <button class="nav-btn" data-page="baby" onclick="setPage('baby')">🍼 Baby Log</button>
+    <button class="nav-btn" data-page="calendar" onclick="setPage('calendar')">📅 Calendar</button>
   </div>
 
   <!-- TODAY / DASHBOARD PAGE -->
@@ -351,6 +374,21 @@
       </div>
     </div>
   </div>
+
+  <!-- CALENDAR PAGE -->
+  <div class="page" id="page-calendar">
+    <div class="cal-header">
+      <button class="cal-nav-btn" onclick="calChangeMonth(-1)">‹</button>
+      <div class="cal-title" id="calTitle">—</div>
+      <button class="cal-nav-btn" onclick="calChangeMonth(1)">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+
+    <div class="dash-section-label">Upcoming</div>
+    <div id="calUpcoming"><div class="loading">Loading…</div></div>
+
+    <button class="add-toggle" onclick="openApptModal()">+ Add appointment</button>
+  </div>
 </div>
 
 <!-- NOTE MODAL (vaccine, eczema, anything free-text) -->
@@ -394,6 +432,43 @@
     <div class="add-actions" style="margin-top:14px;">
       <button class="btn-cancel" onclick="closeModal('taskModalOverlay')">Cancel</button>
       <button class="btn-save chores-c" onclick="addTask()">Save chore</button>
+    </div>
+  </div>
+</div>
+
+<!-- APPOINTMENT MODAL -->
+<div class="modal-overlay" id="apptModalOverlay">
+  <div class="modal">
+    <h3>📅 Appointment</h3>
+    <input type="text" id="apptTitle" placeholder="e.g. 6-month checkup" maxlength="120">
+    <div class="add-row" style="margin-top:8px;">
+      <input type="date" id="apptDate">
+      <input type="time" id="apptTime">
+    </div>
+    <div class="field-label">For</div>
+    <select id="apptPerson">
+      <option value="baby">👶 Baby</option>
+      <option value="mummy">Mummy</option>
+      <option value="daddy">Daddy</option>
+    </select>
+    <div class="field-label">Notes (optional)</div>
+    <textarea id="apptNotes" rows="2" maxlength="300"></textarea>
+    <div class="add-actions" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal('apptModalOverlay')">Cancel</button>
+      <button class="btn-save chores-c" onclick="saveAppt()">Save</button>
+    </div>
+    <div class="add-actions" style="margin-top:8px;" id="apptDeleteRow"></div>
+  </div>
+</div>
+
+<!-- DAY DETAIL MODAL -->
+<div class="modal-overlay" id="dayModalOverlay">
+  <div class="modal">
+    <h3 id="dayModalTitle">—</h3>
+    <div id="dayModalList" class="log-list" style="margin-bottom:12px;"></div>
+    <button class="add-toggle" style="margin-top:0;" onclick="openApptModalForDay()">+ Add appointment</button>
+    <div class="add-actions" style="margin-top:10px;">
+      <button class="btn-cancel" onclick="closeModal('dayModalOverlay')">Close</button>
     </div>
   </div>
 </div>
@@ -1501,13 +1576,197 @@ function renderGrowth() {
   content.innerHTML = '<div class="log-list">' + sorted.map(growthRow).join('') + '</div>';
 }
 
+/* ---------- Calendar ---------- */
+const CALENDAR_KEY = 'calendar-events';
+let calEvents = [];
+let calLoaded = false, calSaving = false;
+let calViewYear, calViewMonth; // 0-indexed month
+let editingApptId = null;
+let dayModalDate = null;
+
+(function initCalView() {
+  const now = new Date();
+  calViewYear = now.getFullYear();
+  calViewMonth = now.getMonth();
+})();
+
+async function loadCalendar() {
+  try {
+    const result = await window.storage.get(CALENDAR_KEY, true);
+    calEvents = result && result.value ? JSON.parse(result.value) : [];
+  } catch (e) { calEvents = []; }
+  calLoaded = true;
+  renderCalendar();
+}
+async function saveCalendar() {
+  calSaving = true;
+  try {
+    await window.storage.set(CALENDAR_KEY, JSON.stringify(calEvents), true);
+  } catch (e1) {
+    try {
+      await new Promise(r => setTimeout(r, 800));
+      await window.storage.set(CALENDAR_KEY, JSON.stringify(calEvents), true);
+    } catch (e2) {
+      const msg = (e2 && e2.message) ? e2.message : String(e2);
+      document.getElementById('calUpcoming').insertAdjacentHTML('afterbegin',
+        `<div class="error">Could not save: ${escapeHtml(msg)}</div>`);
+    }
+  } finally {
+    calSaving = false;
+  }
+}
+
+function calChangeMonth(delta) {
+  calViewMonth += delta;
+  if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+  if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+  renderCalendar();
+}
+
+function personInfo(p) {
+  return { baby: { label: '👶 Baby', cls: 'baby' }, daddy: { label: 'Daddy', cls: 'daddy' }, mummy: { label: 'Mummy', cls: 'mummy' } }[p] || { label: p, cls: 'baby' };
+}
+
+function openApptModal(prefillDate) {
+  editingApptId = null;
+  document.getElementById('apptTitle').value = '';
+  document.getElementById('apptDate').value = prefillDate || new Date().toISOString().slice(0, 10);
+  document.getElementById('apptTime').value = '';
+  document.getElementById('apptPerson').value = 'baby';
+  document.getElementById('apptNotes').value = '';
+  document.getElementById('apptDeleteRow').innerHTML = '';
+  openModal('apptModalOverlay');
+}
+function openApptModalForDay() {
+  openApptModal(dayModalDate);
+}
+function openApptEdit(id) {
+  const e = calEvents.find(x => x.id === id);
+  if (!e) return;
+  editingApptId = id;
+  document.getElementById('apptTitle').value = e.title;
+  document.getElementById('apptDate').value = e.date;
+  document.getElementById('apptTime').value = e.time || '';
+  document.getElementById('apptPerson').value = e.person;
+  document.getElementById('apptNotes').value = e.notes || '';
+  document.getElementById('apptDeleteRow').innerHTML =
+    '<button class="btn-delete" style="width:100%;" onclick="deleteAppt()">Delete this appointment</button>';
+  openModal('apptModalOverlay');
+}
+async function saveAppt() {
+  const title = document.getElementById('apptTitle').value.trim();
+  const date = document.getElementById('apptDate').value;
+  const time = document.getElementById('apptTime').value;
+  const person = document.getElementById('apptPerson').value;
+  const notes = document.getElementById('apptNotes').value.trim();
+  if (!title || !date) return;
+  if (editingApptId) {
+    const e = calEvents.find(x => x.id === editingApptId);
+    e.title = title; e.date = date; e.time = time || null; e.person = person; e.notes = notes || null;
+  } else {
+    calEvents.push({ id: uid(), title, date, time: time || null, person, notes: notes || null, createdAt: Date.now() });
+  }
+  closeModal('apptModalOverlay');
+  renderCalendar();
+  if (document.getElementById('dayModalOverlay').classList.contains('open')) openDayModal(dayModalDate);
+  await saveCalendar();
+}
+async function deleteAppt() {
+  calEvents = calEvents.filter(x => x.id !== editingApptId);
+  closeModal('apptModalOverlay');
+  renderCalendar();
+  if (document.getElementById('dayModalOverlay').classList.contains('open')) openDayModal(dayModalDate);
+  await saveCalendar();
+}
+
+function openDayModal(dateStr) {
+  dayModalDate = dateStr;
+  const d = new Date(dateStr + 'T00:00:00');
+  document.getElementById('dayModalTitle').textContent = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dayEvents = calEvents.filter(e => e.date === dateStr).sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+  const list = document.getElementById('dayModalList');
+  if (dayEvents.length === 0) {
+    list.innerHTML = '<div class="empty" style="padding:16px;">No appointments this day</div>';
+  } else {
+    list.innerHTML = dayEvents.map(apptRow).join('');
+  }
+  openModal('dayModalOverlay');
+}
+
+function apptRow(e) {
+  const info = personInfo(e.person);
+  return `<div class="log-entry" onclick="openApptEdit('${e.id}')">
+    <div class="entry-icon" style="background: var(--sage-soft);">📅</div>
+    <div class="entry-body">
+      <div class="entry-title">${escapeHtml(e.title)}</div>
+      <div class="entry-time">${e.time ? e.time + ' · ' : ''}<span class="person-tag ${info.cls}">${info.label}</span></div>
+    </div>
+  </div>`;
+}
+
+function renderCalendar() {
+  const titleEl = document.getElementById('calTitle');
+  const monthLabel = new Date(calViewYear, calViewMonth, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  titleEl.textContent = monthLabel;
+
+  const grid = document.getElementById('calGrid');
+  const dows = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+
+  const firstDay = new Date(calViewYear, calViewMonth, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  for (let i = 0; i < startOffset; i++) html += `<div class="cal-day empty"></div>`;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${calViewYear}-${String(calViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dayEvents = calEvents.filter(e => e.date === dateStr);
+    const people = [...new Set(dayEvents.map(e => e.person))];
+    const dots = people.map(p => `<span class="cal-dot ${personInfo(p).cls}"></span>`).join('');
+    const isToday = dateStr === todayStr;
+    html += `<div class="cal-day ${isToday ? 'today' : ''}" onclick="openDayModal('${dateStr}')">
+      <div>${day}</div>
+      <div class="cal-day-dots">${dots}</div>
+    </div>`;
+  }
+
+  grid.innerHTML = html;
+
+  const upcoming = calEvents
+    .filter(e => e.date >= todayStr)
+    .sort((a, b) => (a.date + (a.time || '99:99')).localeCompare(b.date + (b.time || '99:99')))
+    .slice(0, 10);
+  const upcomingEl = document.getElementById('calUpcoming');
+  if (!calLoaded) {
+    upcomingEl.innerHTML = '<div class="loading">Loading…</div>';
+  } else if (upcoming.length === 0) {
+    upcomingEl.innerHTML = '<div class="empty">No upcoming appointments</div>';
+  } else {
+    upcomingEl.innerHTML = '<div class="log-list">' + upcoming.map(e => {
+      const info = personInfo(e.person);
+      const d = new Date(e.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      return `<div class="log-entry" onclick="openApptEdit('${e.id}')">
+        <div class="entry-icon" style="background: var(--sage-soft);">📅</div>
+        <div class="entry-body">
+          <div class="entry-title">${escapeHtml(e.title)}</div>
+          <div class="entry-time">${d}${e.time ? ' · ' + e.time : ''} · <span class="person-tag ${info.cls}">${info.label}</span></div>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+  }
+}
+
 function startApp() {
   updateClock();
   setInterval(updateClock, 1000);
   loadTasks();
   loadBaby();
   loadGrowth();
-  setInterval(() => { if (!tasksSaving) loadTasks(); if (!babySaving) loadBaby(); if (!growthSaving) loadGrowth(); }, 8000);
+  loadCalendar();
+  setInterval(() => { if (!tasksSaving) loadTasks(); if (!babySaving) loadBaby(); if (!growthSaving) loadGrowth(); if (!calSaving) loadCalendar(); }, 8000);
 }
 </script>
 
