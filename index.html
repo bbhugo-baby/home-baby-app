@@ -70,6 +70,9 @@
   .empty { text-align: center; padding: 44px 16px; color: var(--ink-soft); font-size: 13.5px; }
   .section-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
     color: var(--ink-soft); margin: 20px 0 8px 2px; }
+  .section-label.collapsible { cursor: pointer; display: flex; align-items: center; gap: 5px;
+    padding: 4px 2px; margin: 16px 0 8px; }
+  .section-label.collapsible .arrow { font-size: 9px; transition: transform 0.15s ease; }
 
   .add-toggle { width: 100%; padding: 12px; border-radius: 12px; border: none; background: var(--ink);
     color: var(--paper); font-size: 14.5px; font-weight: 600; cursor: pointer; margin-top: 14px; }
@@ -313,7 +316,6 @@
     </div>
     <div class="cal-grid" id="calGrid"></div>
 
-    <div class="dash-section-label">Upcoming</div>
     <div id="calUpcoming"><div class="loading">Loading…</div></div>
 
     <button class="add-toggle" onclick="openApptModal()">+ Add appointment</button>
@@ -663,6 +665,13 @@ let tasks = [];
 let babyLogs = [];
 let tasksLoaded = false, babyLoaded = false;
 let tasksSaving = false, babySaving = false;
+const sectionOpen = { choresCompleted: false, choresArchived: false, calUpcoming: false, babyArchived: false };
+function toggleSection(key) {
+  sectionOpen[key] = !sectionOpen[key];
+  if (key === 'choresCompleted' || key === 'choresArchived') renderTasks();
+  else if (key === 'calUpcoming') renderCalendar();
+  else if (key === 'babyArchived') renderBaby();
+}
 let editingSleepId = null;
 let editingMilkId = null;
 let editingFoodId = null;
@@ -826,9 +835,13 @@ function renderTasks() {
   if (completed.length > 0) {
     const recentCompleted = completed.slice(0, 3);
     const archived = completed.slice(3);
-    html += '<div class="section-label">Completed</div><div class="task-list">' + recentCompleted.map(taskRow).join('') + '</div>';
+    const compOpen = sectionOpen.choresCompleted;
+    html += `<div class="section-label collapsible" onclick="toggleSection('choresCompleted')"><span class="arrow">${compOpen ? '▾' : '▸'}</span>Completed (${recentCompleted.length})</div>`;
+    if (compOpen) html += '<div class="task-list">' + recentCompleted.map(taskRow).join('') + '</div>';
     if (archived.length > 0) {
-      html += '<div class="section-label">Archived</div><div class="task-list">' + archived.map(taskRow).join('') + '</div>';
+      const archOpen = sectionOpen.choresArchived;
+      html += `<div class="section-label collapsible" onclick="toggleSection('choresArchived')"><span class="arrow">${archOpen ? '▾' : '▸'}</span>Archived (${archived.length})</div>`;
+      if (archOpen) html += '<div class="task-list">' + archived.map(taskRow).join('') + '</div>';
     }
   }
   content.innerHTML = html;
@@ -1317,7 +1330,9 @@ function renderBaby() {
     }
   });
   if (archivedEntries.length > 0) {
-    html += `<div class="section-label">Archived</div><div class="log-list">${archivedEntries.map(babyLogRow).join('')}</div>`;
+    const babyArchOpen = sectionOpen.babyArchived;
+    html += `<div class="section-label collapsible" onclick="toggleSection('babyArchived')"><span class="arrow">${babyArchOpen ? '▾' : '▸'}</span>Archived (${archivedEntries.length})</div>`;
+    if (babyArchOpen) html += `<div class="log-list">${archivedEntries.map(babyLogRow).join('')}</div>`;
   }
   content.innerHTML = html;
   renderToday();
@@ -1667,7 +1682,7 @@ function renderCalendar() {
     .sort((a, b) => (a.date + (a.time || '99:99')).localeCompare(b.date + (b.time || '99:99')));
 
   const tomorrowStr = new Date(today.getTime() + 86400000).toISOString().slice(0, 10);
-  renderUpcomingInto('calUpcoming', upcoming.slice(0, 10));
+  renderCalUpcoming(upcoming.slice(0, 10));
   renderUpcomingInto('dashUpcoming', upcoming.filter(e => e.date === todayStr || e.date === tomorrowStr));
 }
 
@@ -1693,6 +1708,17 @@ function renderUpcomingInto(elId, items) {
   } else {
     el.innerHTML = '<div class="log-list">' + items.map(upcomingApptRow).join('') + '</div>';
   }
+}
+
+function renderCalUpcoming(items) {
+  const el = document.getElementById('calUpcoming');
+  if (!el) return;
+  if (!calLoaded) { el.innerHTML = '<div class="loading">Loading…</div>'; return; }
+  if (items.length === 0) { el.innerHTML = '<div class="section-label">Upcoming</div><div class="empty">No upcoming appointments</div>'; return; }
+  const open = sectionOpen.calUpcoming;
+  let html = `<div class="section-label collapsible" onclick="toggleSection('calUpcoming')"><span class="arrow">${open ? '▾' : '▸'}</span>Upcoming (${items.length})</div>`;
+  if (open) html += '<div class="log-list">' + items.map(upcomingApptRow).join('') + '</div>';
+  el.innerHTML = html;
 }
 
 function startApp() {
