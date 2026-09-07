@@ -269,7 +269,7 @@
     </div>
     <div class="status-banner food-b" id="dashFoodBanner" style="display:none;">
       <span id="dashFoodText"></span>
-      <button onclick="triggerFoodCapture()">Mark finished</button>
+      <button onclick="finishMeal()">Finished</button>
     </div>
 
     <div class="quick-actions-block">
@@ -325,6 +325,7 @@
   <div class="page" id="page-baby">
     <button class="mini-edit" style="display:block; width:100%; text-align:center;" onclick="exportData()">⤓ Export all data (CSV)</button>
     <button class="add-toggle" style="margin-top:10px; background: var(--rose);" onclick="openNoteModal()">📝 Add a note</button>
+    <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:10px;" onclick="openPhotoArchive()">🗄️ View archived meal photos</button>
 
     <div id="babyLogContent"><div class="loading">Loading…</div></div>
 
@@ -492,6 +493,15 @@
   <div class="modal" style="padding:14px; background:transparent;" onclick="event.stopPropagation()">
     <div id="photoViewBody"></div>
     <button class="btn-cancel" style="width:100%; margin-top:10px; background:white;" onclick="closeModal('photoViewOverlay')">Close</button>
+  </div>
+</div>
+
+<!-- PHOTO ARCHIVE MODAL -->
+<div class="modal-overlay" id="archiveModalOverlay">
+  <div class="modal">
+    <h3>🗄️ Archived Meal Photos</h3>
+    <div id="archiveModalList" class="log-list" style="margin-bottom:12px;"></div>
+    <button class="btn-cancel" style="width:100%;" onclick="closeModal('archiveModalOverlay')">Close</button>
   </div>
 </div>
 
@@ -873,25 +883,88 @@ function renderTasks() {
 }
 
 /* ---------- Baby log ---------- */
-function loadBaby() {
-  subscribeToKey(BABY_KEY, (value) => {
-    babyLogs = value ? JSON.parse(value) : [];
-    babyLoaded = true;
-    if (!babySaving) renderBaby();
+function normalizeFoodEntries() {
+  babyLogs.forEach(l => {
+    if (l.type === 'food' && !l.photos) {
+      const photos = [];
+      if (l.startPhoto) photos.push({ photo: l.startPhoto, time: l.startTime });
+      if (l.endPhoto) photos.push({ photo: l.endPhoto, time: l.endTime || l.startTime });
+      l.photos = photos;
+      l.finished = !!(l.endPhoto || l.endTime);
+      delete l.startPhoto;
+      delete l.endPhoto;
+    }
   });
 }
 
-const PHOTO_RETENTION_DAYS = 30;
-async function archiveOldPhotos() {
-  const cutoff = Date.now() - PHOTO_RETENTION_DAYS * 24 * 60 * 60 * 1000;
-  let changed = false;
-  babyLogs.forEach(l => {
-    if (l.type === 'food' && (l.startPhoto || l.endPhoto)) {
-      const t = new Date(l.startTime).getTime();
-      if (t < cutoff) { l.startPhoto = null; l.endPhoto = null; changed = true; }
+function loadBaby() {
+  subscribeToKey(BABY_KEY, (value) => {
+    babyLogs = value ? JSON.parse(value) : [];
+    normalizeFoodEntries();
+    babyLoaded = true;
+    if (!babySaving) renderBaby();
+    if (!archiveCheckedThisSession) {
+      archiveCheckedThisSession = true;
+      setTimeout(checkPhotoArchive, 3000);
     }
   });
-  if (changed) { renderBaby(); await saveBaby(); }
+}
+
+const PHOTO_RETENTION_DAYS = 90;
+const PHOTO_ARCHIVE_KEY = 'photo-archive';
+let archiveCheckedThisSession = false;
+async function checkPhotoArchive() {
+  const cutoff = Date.now() - PHOTO_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const toArchive = [];
+  babyLogs.forEach(l => {
+    if (l.type === 'food' && l.photos && l.photos.length > 0) {
+      const t = new Date(l.startTime).getTime();
+      if (t < cutoff) {
+        toArchive.push({ date: l.startTime.slice(0, 10), mealTime: l.startTime, photos: l.photos });
+        l.photos = [];
+      }
+    }
+  });
+  if (toArchive.length === 0) return;
+  let archive = [];
+  try {
+    const r = await window.storage.get(PHOTO_ARCHIVE_KEY, true);
+    archive = r.value ? JSON.parse(r.value) : [];
+  } catch (e) { archive = []; }
+  archive.push(...toArchive);
+  try {
+    await window.storage.set(PHOTO_ARCHIVE_KEY, JSON.stringify(archive), true);
+  } catch (e) { return; } // if archive save fails, don't touch the live data
+  renderBaby();
+  await saveBaby();
+}
+
+async function openPhotoArchive() {
+  const overlay = document.getElementById('archiveModalOverlay');
+  const list = document.getElementById('archiveModalList');
+  list.innerHTML = '<div class="loading">Loading…</div>';
+  openModal('archiveModalOverlay');
+  let archive = [];
+  try {
+    const r = await window.storage.get(PHOTO_ARCHIVE_KEY, true);
+    archive = r.value ? JSON.parse(r.value) : [];
+  } catch (e) { archive = []; }
+  if (archive.length === 0) {
+    list.innerHTML = '<div class="empty" style="padding:16px;">No archived photos yet — meal photos move here after 90 days.</div>';
+    return;
+  }
+  const sorted = [...archive].sort((a, b) => new Date(b.mealTime) - new Date(a.mealTime));
+  list.innerHTML = sorted.map(entry => {
+    const d = new Date(entry.mealTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const thumbs = entry.photos.map(p => `<img class="entry-thumb" src="${p.photo}" onclick="openPhotoView('${p.photo.replace(/'/g, "\\'")}')">`).join('');
+    return `<div class="log-entry">
+      <div class="entry-thumbs">${thumbs}</div>
+      <div class="entry-body">
+        <div class="entry-title">${d}</div>
+        <div class="entry-time">${timeLabel(entry.mealTime)} · ${entry.photos.length} photo${entry.photos.length > 1 ? 's' : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function csvEscape(v) {
@@ -912,7 +985,7 @@ function exportData() {
   sorted.forEach(l => {
     if (l.type === 'sleep') lines.push(['Sleep', l.start, l.end || '', ''].map(csvEscape).join(','));
     else if (l.type === 'milk') lines.push(['Milk', l.time, '', `${l.ml}ml`].map(csvEscape).join(','));
-    else if (l.type === 'food') lines.push(['Food', l.startTime, l.endTime || '', l.endPhoto || l.endTime ? 'Finished' : 'Started'].map(csvEscape).join(','));
+    else if (l.type === 'food') lines.push(['Food', l.startTime, l.endTime || '', `${l.finished ? 'Finished' : 'Still eating'} (${(l.photos || []).length} tries)`].map(csvEscape).join(','));
     else if (SIMPLE_TYPES[l.type]) lines.push([SIMPLE_TYPES[l.type].label, l.time, '', ''].map(csvEscape).join(','));
     else if (l.type === 'note') lines.push(['Note', l.time, '', l.text].map(csvEscape).join(','));
   });
@@ -1033,10 +1106,7 @@ async function deleteMilkModal() {
 }
 
 /* ----- Food: photo-only start/finish toggle ----- */
-let pendingFoodAction = null; // {mode:'start'} or {mode:'end', id}
 function triggerFoodCapture() {
-  const ongoing = babyLogs.find(l => l.type === 'food' && l.startPhoto && !l.endPhoto);
-  pendingFoodAction = ongoing ? { mode: 'end', id: ongoing.id } : { mode: 'start' };
   document.getElementById('foodFileInput').value = '';
   document.getElementById('foodFileInput').click();
 }
@@ -1060,19 +1130,29 @@ function compressFile(file, callback) {
 }
 async function handleFoodPhoto() {
   const file = document.getElementById('foodFileInput').files[0];
-  if (!file || !pendingFoodAction) return;
+  if (!file) return;
   compressFile(file, async (dataUrl) => {
-    if (pendingFoodAction.mode === 'start') {
-      babyLogs.push({ id: uid(), type: 'food', startTime: nowLocalInput(), startPhoto: dataUrl,
-        endTime: null, endPhoto: null, createdAt: Date.now() });
+    const ongoing = babyLogs.find(l => l.type === 'food' && !l.finished);
+    if (ongoing) {
+      ongoing.photos.push({ photo: dataUrl, time: nowLocalInput() });
     } else {
-      const e = babyLogs.find(l => l.id === pendingFoodAction.id);
-      if (e) { e.endTime = nowLocalInput(); e.endPhoto = dataUrl; }
+      babyLogs.push({
+        id: uid(), type: 'food', startTime: nowLocalInput(),
+        photos: [{ photo: dataUrl, time: nowLocalInput() }],
+        endTime: null, finished: false, createdAt: Date.now()
+      });
     }
-    pendingFoodAction = null;
     renderBaby();
     await saveBaby();
   });
+}
+async function finishMeal() {
+  const ongoing = babyLogs.find(l => l.type === 'food' && !l.finished);
+  if (!ongoing) return;
+  ongoing.finished = true;
+  ongoing.endTime = nowLocalInput();
+  renderBaby();
+  await saveBaby();
 }
 function openFoodEdit(id) {
   editingFoodId = id;
@@ -1085,7 +1165,9 @@ async function saveFoodEdit() {
   const e = babyLogs.find(l => l.id === editingFoodId);
   if (!e) return;
   e.startTime = document.getElementById('foodEditStart').value;
-  e.endTime = document.getElementById('foodEditEnd').value || null;
+  const end = document.getElementById('foodEditEnd').value;
+  e.endTime = end || null;
+  e.finished = !!end;
   closeModal('foodEditOverlay');
   renderBaby();
   await saveBaby();
@@ -1201,16 +1283,12 @@ function openPhotoView(url) {
 function openFoodPhotoView(id) {
   const e = babyLogs.find(l => l.id === id);
   if (!e) return;
-  if (!e.startPhoto && !e.endPhoto) { openFoodEdit(id); return; }
-  let html = '';
-  if (e.startPhoto) {
-    html += `<div style="text-align:center;color:white;font-size:12px;font-weight:600;margin-bottom:6px;">What he ate</div>
-      <img src="${e.startPhoto}" style="width:100%; border-radius:14px; display:block;">`;
-  }
-  if (e.endPhoto) {
-    html += `<div style="text-align:center;color:white;font-size:12px;font-weight:600;margin:12px 0 6px;">Finished</div>
-      <img src="${e.endPhoto}" style="width:100%; border-radius:14px; display:block;">`;
-  }
+  if (!e.photos || e.photos.length === 0) { openFoodEdit(id); return; }
+  let html = e.photos.map((p, i) => `
+    <div style="text-align:center;color:white;font-size:12px;font-weight:600;margin:${i === 0 ? '0' : '12px'} 0 6px;">
+      ${e.photos.length > 1 ? `Attempt ${i + 1} · ` : ''}${timeLabel(p.time)}
+    </div>
+    <img src="${p.photo}" style="width:100%; border-radius:14px; display:block;">`).join('');
   document.getElementById('photoViewBody').innerHTML = html;
   openModal('photoViewOverlay');
 }
@@ -1259,18 +1337,21 @@ function babyLogRow(l) {
       <button class="del" onclick="event.stopPropagation(); deleteBabyLog('${l.id}')">×</button>
     </div>`;
   }
-  const status = l.endPhoto ? 'Finished' : (l.endTime ? 'Finished' : 'Still eating');
-  const hasPhotos = l.startPhoto || l.endPhoto;
+  const photos = l.photos || [];
+  const status = l.finished ? 'Finished' : 'Still eating';
+  const hasPhotos = photos.length > 0;
+  const shownThumbs = photos.slice(0, 3);
+  const extraCount = photos.length - shownThumbs.length;
   const thumbs = hasPhotos
     ? `<div class="entry-thumbs">
-        ${l.startPhoto ? `<img class="entry-thumb" src="${l.startPhoto}">` : ''}
-        ${l.endPhoto ? `<img class="entry-thumb" src="${l.endPhoto}">` : ''}
+        ${shownThumbs.map(p => `<img class="entry-thumb" src="${p.photo}">`).join('')}
+        ${extraCount > 0 ? `<div class="entry-icon food" style="font-size:11px; font-weight:700;">+${extraCount}</div>` : ''}
       </div>`
     : `<div class="entry-icon food">🍽️</div>`;
   return `<div class="log-entry" onclick="${hasPhotos ? `openFoodPhotoView('${l.id}')` : `openFoodEdit('${l.id}')`}">
     ${thumbs}
     <div class="entry-body">
-      <div class="entry-title">Meal · ${status}${hasPhotos ? '' : ' (no photo)'}</div>
+      <div class="entry-title">Meal · ${status}${photos.length > 1 ? ` (${photos.length} tries)` : ''}${hasPhotos ? '' : ' (no photo)'}</div>
       <div class="entry-time">${timeLabel(l.startTime)}${l.endTime ? ' – ' + timeLabel(l.endTime) : ''}</div>
     </div>
     <button class="del" style="opacity:0.5;" onclick="event.stopPropagation(); openFoodEdit('${l.id}')">✏️</button>
@@ -1420,13 +1501,13 @@ function renderToday() {
   document.getElementById('dashSleepLbl').textContent = openNap ? 'Wake' : 'Sleep';
   document.getElementById('dashSleepBtn').classList.toggle('active-state', !!openNap);
 
-  const openMeal = babyLogs.find(l => l.type === 'food' && l.startPhoto && !l.endPhoto);
+  const openMeal = babyLogs.find(l => l.type === 'food' && !l.finished);
   const dashFoodBanner = document.getElementById('dashFoodBanner');
   if (openMeal) {
     dashFoodBanner.style.display = 'flex';
-    document.getElementById('dashFoodText').textContent = `🍽️ Eating since ${timeLabel(openMeal.startTime)}`;
+    document.getElementById('dashFoodText').textContent = `🍽️ Eating since ${timeLabel(openMeal.startTime)} · ${openMeal.photos.length} photo${openMeal.photos.length > 1 ? 's' : ''}`;
   } else { dashFoodBanner.style.display = 'none'; }
-  document.getElementById('dashFoodLbl').textContent = openMeal ? 'Finished' : 'Food';
+  document.getElementById('dashFoodLbl').textContent = openMeal ? 'Add photo' : 'Food';
   document.getElementById('dashFoodBtn').classList.toggle('active-state', !!openMeal);
 }
 
