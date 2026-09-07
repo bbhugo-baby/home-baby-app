@@ -414,6 +414,7 @@
       <button class="btn-cancel" onclick="closeModal('taskModalOverlay')">Cancel</button>
       <button class="btn-save chores-c" onclick="addTask()">Save chore</button>
     </div>
+    <div class="add-actions" style="margin-top:8px;" id="taskDeleteRow"></div>
   </div>
 </div>
 
@@ -830,11 +831,26 @@ async function saveTasks() {
     tasksSaving = false;
   }
 }
+let editingTaskId = null;
 function openTaskModal() {
+  editingTaskId = null;
   document.getElementById('taskText').value = '';
   document.getElementById('taskWho').value = '';
   document.getElementById('taskDeadline').value = '';
   document.getElementById('taskRepeat').value = '';
+  document.getElementById('taskDeleteRow').innerHTML = '';
+  openModal('taskModalOverlay');
+}
+function openTaskEdit(id) {
+  const t = tasks.find(x => x.id === id);
+  if (!t) return;
+  editingTaskId = id;
+  document.getElementById('taskText').value = t.text;
+  document.getElementById('taskWho').value = t.who || '';
+  document.getElementById('taskDeadline').value = t.deadline || '';
+  document.getElementById('taskRepeat').value = t.repeat || '';
+  document.getElementById('taskDeleteRow').innerHTML =
+    '<button class="btn-delete" style="width:100%;" onclick="deleteTaskModal()">Delete this chore</button>';
   openModal('taskModalOverlay');
 }
 async function addTask() {
@@ -843,7 +859,18 @@ async function addTask() {
   const who = document.getElementById('taskWho').value;
   const deadline = document.getElementById('taskDeadline').value;
   const repeat = document.getElementById('taskRepeat').value;
-  tasks.push({ id: uid(), text, who, deadline: deadline || null, repeat: repeat || null, done: false, createdAt: Date.now() });
+  if (editingTaskId) {
+    const t = tasks.find(x => x.id === editingTaskId);
+    if (t) { t.text = text; t.who = who; t.deadline = deadline || null; t.repeat = repeat || null; }
+  } else {
+    tasks.push({ id: uid(), text, who, deadline: deadline || null, repeat: repeat || null, done: false, createdAt: Date.now() });
+  }
+  closeModal('taskModalOverlay');
+  renderTasks();
+  await saveTasks();
+}
+async function deleteTaskModal() {
+  tasks = tasks.filter(x => x.id !== editingTaskId);
   closeModal('taskModalOverlay');
   renderTasks();
   await saveTasks();
@@ -899,6 +926,7 @@ function taskRow(t) {
         ${t.repeat ? `<span class="who">· 🔁 ${t.repeat === 'weekly' ? 'Weekly' : 'Monthly'}</span>` : ''}
       </div>
     </div>
+    <button class="del" style="opacity:0.5;" onclick="event.stopPropagation(); openTaskEdit('${t.id}')">✏️</button>
     <button class="del" onclick="event.stopPropagation(); deleteTask('${t.id}')">×</button>
   </div>`;
 }
@@ -1676,6 +1704,7 @@ function dashTaskRow(t) {
       <div class="dash-task-text">${escapeHtml(t.text)}</div>
       ${dl ? `<div class="dash-task-meta ${dl.cls}">${dl.text}${t.who ? ' · ' + escapeHtml(t.who) : ''}${t.repeat ? ' · 🔁' : ''}</div>` : (t.who || t.repeat ? `<div class="dash-task-meta">${t.who ? escapeHtml(t.who) : ''}${t.repeat ? ' 🔁' : ''}</div>` : '')}
     </div>
+    <button class="del" style="opacity:0.5;" onclick="event.stopPropagation(); openTaskEdit('${t.id}')">✏️</button>
   </div>`;
 }
 function renderToday() {
