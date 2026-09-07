@@ -1660,18 +1660,23 @@ function renderBaby() {
     groups[label].push(l);
   });
   let html = '';
-  const archivedEntries = [];
+  const archivedGroups = [];
   Object.keys(groups).forEach(label => {
     if (label === 'Today') {
       html += `<div class="section-label">${label}</div><div class="log-list">${groups[label].map(babyLogRow).join('')}</div>`;
     } else {
-      archivedEntries.push(...groups[label]);
+      archivedGroups.push({ label, entries: groups[label] });
     }
   });
-  if (archivedEntries.length > 0) {
+  if (archivedGroups.length > 0) {
+    const totalCount = archivedGroups.reduce((sum, g) => sum + g.entries.length, 0);
     const babyArchOpen = sectionOpen.babyArchived;
-    html += `<div class="section-label collapsible" onclick="toggleSection('babyArchived')"><span class="arrow">${babyArchOpen ? '▾' : '▸'}</span>Archived (${archivedEntries.length})</div>`;
-    if (babyArchOpen) html += `<div class="log-list">${archivedEntries.map(babyLogRow).join('')}</div>`;
+    html += `<div class="section-label collapsible" onclick="toggleSection('babyArchived')"><span class="arrow">${babyArchOpen ? '▾' : '▸'}</span>Archived (${totalCount})</div>`;
+    if (babyArchOpen) {
+      archivedGroups.forEach(g => {
+        html += `<div class="section-label">${g.label}</div><div class="log-list">${g.entries.map(babyLogRow).join('')}</div>`;
+      });
+    }
   }
   content.innerHTML = html;
   renderToday();
