@@ -181,6 +181,13 @@
   .dash-task-meta.today { color: var(--gold); font-weight: 600; }
   .dash-empty { text-align: center; padding: 26px 16px; color: var(--ink-soft); font-size: 14px; }
 
+  /* ---- Daily summary cards ---- */
+  .day-summary-card { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 8px; }
+  .day-summary-title { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+  .day-summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 10px; font-size: 12.5px; }
+  .day-summary-item { color: var(--ink-soft); }
+  .day-summary-item b { color: var(--ink); font-weight: 700; }
+
   /* ---- Mini one-tap logs ---- */
   .mini-log-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
   .mini-log-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px;
@@ -323,7 +330,11 @@
 
   <!-- BABY PAGE -->
   <div class="page" id="page-baby">
-    <button class="mini-edit" style="display:block; width:100%; text-align:center;" onclick="exportData()">⤓ Export all data (CSV)</button>
+    <div class="dash-section-label" style="margin-top:0;">📊 Last 3 Days</div>
+    <div id="dailySummaryRecent"><div class="loading">Loading…</div></div>
+    <div id="dailySummaryOlder"></div>
+
+    <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:16px;" onclick="exportData()">⤓ Export all data (CSV)</button>
     <button class="add-toggle" style="margin-top:10px; background: var(--rose);" onclick="openNoteModal()">📝 Add a note</button>
     <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:10px;" onclick="openPhotoArchive()">🗄️ View archived meal photos</button>
 
@@ -702,12 +713,13 @@ let tasks = [];
 let babyLogs = [];
 let tasksLoaded = false, babyLoaded = false;
 let tasksSaving = false, babySaving = false;
-const sectionOpen = { choresCompleted: false, choresArchived: false, calUpcoming: false, babyArchived: false };
+const sectionOpen = { choresCompleted: false, choresArchived: false, calUpcoming: false, babyArchived: false, babyDailyOlder: false };
 function toggleSection(key) {
   sectionOpen[key] = !sectionOpen[key];
   if (key === 'choresCompleted' || key === 'choresArchived') renderTasks();
   else if (key === 'calUpcoming') renderCalendar();
   else if (key === 'babyArchived') renderBaby();
+  else if (key === 'babyDailyOlder') renderDailySummary();
 }
 let editingSleepId = null;
 let editingMilkId = null;
@@ -1296,11 +1308,14 @@ function openFoodPhotoView(id) {
 function babyLogRow(l) {
   if (l.type === 'sleep') {
     const dur = l.end ? durationLabel(l.start, l.end) : 'ongoing';
+    const kind = sleepKind(l.start);
+    const kindIcon = kind === 'night' ? '🌙' : '☀️';
+    const kindLabel = kind === 'night' ? 'Night sleep' : 'Nap';
     return `<div class="log-entry" onclick="openSleepManual('${l.id}')">
-      <div class="entry-icon sleep">😴</div>
+      <div class="entry-icon sleep">${kindIcon}</div>
       <div class="entry-body">
-        <div class="entry-title">Sleep · ${dur}</div>
-        <div class="entry-time">${timeLabel(l.start)}${l.end ? ' – ' + timeLabel(l.end) : ' (still napping)'}</div>
+        <div class="entry-title">${kindLabel} · ${dur}</div>
+        <div class="entry-time">${timeLabel(l.start)}${l.end ? ' – ' + timeLabel(l.end) : ' (still going)'}</div>
       </div>
       <button class="del" onclick="event.stopPropagation(); deleteBabyLog('${l.id}')">×</button>
     </div>`;
@@ -1359,6 +1374,11 @@ function babyLogRow(l) {
   </div>`;
 }
 
+function sleepKind(startStr) {
+  const h = new Date(startStr).getHours();
+  return (h >= 19 || h < 7) ? 'night' : 'nap';
+}
+
 function computeTodayStats() {
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date(todayStart); todayEnd.setDate(todayEnd.getDate() + 1);
@@ -1406,8 +1426,95 @@ function updateMiniLogBadges() {
   });
 }
 
+function getAllTouchedDates() {
+  const dates = new Set();
+  dates.add(new Date().toISOString().slice(0, 10));
+  babyLogs.forEach(l => {
+    if (l.type === 'sleep') {
+      dates.add(l.start.slice(0, 10));
+      if (l.end) dates.add(l.end.slice(0, 10));
+    } else if (l.type === 'milk' || SIMPLE_TYPES[l.type]) {
+      dates.add(l.time.slice(0, 10));
+    } else if (l.type === 'food') {
+      dates.add(l.startTime.slice(0, 10));
+    }
+  });
+  return [...dates].sort((a, b) => b.localeCompare(a));
+}
+
+function daySleepBreakdown(dateStr) {
+  const dayStart = new Date(dateStr + 'T00:00:00');
+  const dayEnd = new Date(dayStart.getTime() + 86400000);
+  let nightMins = 0, napMins = 0;
+  babyLogs.forEach(l => {
+    if (l.type !== 'sleep') return;
+    const s = new Date(l.start);
+    const e = l.end ? new Date(l.end) : new Date();
+    const overlapStart = s < dayStart ? dayStart : s;
+    const overlapEnd = e > dayEnd ? dayEnd : e;
+    if (overlapEnd <= overlapStart) return;
+    const mins = (overlapEnd - overlapStart) / 60000;
+    if (sleepKind(l.start) === 'night') nightMins += mins; else napMins += mins;
+  });
+  return { nightMins, napMins };
+}
+function dayMilkMl(dateStr) {
+  let total = 0;
+  babyLogs.forEach(l => { if (l.type === 'milk' && l.time.slice(0, 10) === dateStr) total += l.ml; });
+  return total;
+}
+function dayMealCount(dateStr) {
+  const dayStart = new Date(dateStr + 'T00:00:00');
+  const dayEnd = new Date(dayStart.getTime() + 86400000);
+  const times = babyLogs.filter(l => l.type === 'food' && new Date(l.startTime) >= dayStart && new Date(l.startTime) < dayEnd)
+    .map(l => new Date(l.startTime)).sort((a, b) => a - b);
+  let meals = 0, last = null;
+  const MEAL_GAP_MS = 30 * 60 * 1000;
+  times.forEach(t => { if (!last || (t - last) > MEAL_GAP_MS) meals++; last = t; });
+  return meals;
+}
+function dayPoopCount(dateStr) {
+  return babyLogs.filter(l => l.type === 'poop' && l.time.slice(0, 10) === dateStr).length;
+}
+function fmtMins(m) {
+  return m >= 60 ? `${Math.floor(m / 60)}h ${Math.round(m % 60)}m` : `${Math.round(m)}m`;
+}
+function dayCard(dateStr) {
+  const label = dayLabel(dateStr + 'T00:00:00');
+  const { nightMins, napMins } = daySleepBreakdown(dateStr);
+  const milk = dayMilkMl(dateStr);
+  const meals = dayMealCount(dateStr);
+  const poop = dayPoopCount(dateStr);
+  return `<div class="day-summary-card">
+    <div class="day-summary-title">${label}</div>
+    <div class="day-summary-grid">
+      <div class="day-summary-item">🌙 Night sleep: <b>${fmtMins(nightMins)}</b></div>
+      <div class="day-summary-item">☀️ Nap: <b>${fmtMins(napMins)}</b></div>
+      <div class="day-summary-item">🍼 Milk: <b>${milk}ml</b></div>
+      <div class="day-summary-item">🍽️ Meals: <b>${meals}</b></div>
+      <div class="day-summary-item">💩 Poop: <b>${poop}</b></div>
+    </div>
+  </div>`;
+}
+function renderDailySummary() {
+  const recentEl = document.getElementById('dailySummaryRecent');
+  const olderEl = document.getElementById('dailySummaryOlder');
+  if (!recentEl || !olderEl) return;
+  if (!babyLoaded) { recentEl.innerHTML = '<div class="loading">Loading…</div>'; return; }
+  const dates = getAllTouchedDates();
+  const recent = dates.slice(0, 3);
+  const older = dates.slice(3);
+  recentEl.innerHTML = recent.map(dayCard).join('');
+  if (older.length === 0) { olderEl.innerHTML = ''; return; }
+  const open = sectionOpen.babyDailyOlder;
+  let html = `<div class="section-label collapsible" onclick="toggleSection('babyDailyOlder')"><span class="arrow">${open ? '▾' : '▸'}</span>Older days (${older.length})</div>`;
+  if (open) html += older.map(dayCard).join('');
+  olderEl.innerHTML = html;
+}
+
 function renderBaby() {
   updateMiniLogBadges();
+  renderDailySummary();
   const content = document.getElementById('babyLogContent');
   if (!babyLoaded) { content.innerHTML = '<div class="loading">Loading…</div>'; renderToday(); return; }
 
@@ -1496,7 +1603,10 @@ function renderToday() {
   const dashNapBanner = document.getElementById('dashNapBanner');
   if (openNap) {
     dashNapBanner.style.display = 'flex';
-    document.getElementById('dashNapText').textContent = `😴 Napping since ${timeLabel(openNap.start)}`;
+    const napKind = sleepKind(openNap.start);
+    document.getElementById('dashNapText').textContent = napKind === 'night'
+      ? `🌙 Sleeping since ${timeLabel(openNap.start)}`
+      : `☀️ Napping since ${timeLabel(openNap.start)}`;
   } else { dashNapBanner.style.display = 'none'; }
   document.getElementById('dashSleepLbl').textContent = openNap ? 'Wake' : 'Sleep';
   document.getElementById('dashSleepBtn').classList.toggle('active-state', !!openNap);
