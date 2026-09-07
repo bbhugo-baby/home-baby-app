@@ -483,10 +483,13 @@
   </div>
 </div>
 
-<!-- FOOD TIME-EDIT MODAL (times only, photo taken via camera flow) -->
+<!-- FOOD EDIT MODAL (times + full photo management) -->
 <div class="modal-overlay" id="foodEditOverlay">
   <div class="modal">
-    <h3>🍽️ Meal time</h3>
+    <h3>🍽️ Edit meal</h3>
+    <div class="field-label" style="margin-top:0;">Photos</div>
+    <div id="foodEditPhotos" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;"></div>
+    <input type="file" id="foodEditFileInput" accept="image/*" onchange="addPhotoToEditingMeal()">
     <div class="field-label">Started eating</div>
     <input type="datetime-local" id="foodEditStart">
     <div class="field-label">Finished (leave blank if still eating)</div>
@@ -1204,12 +1207,42 @@ async function finishMeal() {
   renderBaby();
   await saveBaby();
 }
+let editingFoodPhotos = [];
 function openFoodEdit(id) {
   editingFoodId = id;
   const e = babyLogs.find(l => l.id === id);
+  if (!e) return;
+  editingFoodPhotos = (e.photos || []).slice();
+  renderFoodEditPhotos();
+  document.getElementById('foodEditFileInput').value = '';
   document.getElementById('foodEditStart').value = e.startTime;
   document.getElementById('foodEditEnd').value = e.endTime || '';
   openModal('foodEditOverlay');
+}
+function renderFoodEditPhotos() {
+  const container = document.getElementById('foodEditPhotos');
+  if (editingFoodPhotos.length === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--ink-soft);">No photos yet</div>';
+    return;
+  }
+  container.innerHTML = editingFoodPhotos.map((p, i) => `
+    <div style="position:relative;">
+      <img src="${p.photo}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;" onclick="openPhotoView(editingFoodPhotos[${i}].photo)">
+      <button onclick="removeFoodEditPhoto(${i})" style="position:absolute;top:-6px;right:-6px;background:var(--danger);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:1;cursor:pointer;">×</button>
+    </div>
+  `).join('');
+}
+function removeFoodEditPhoto(index) {
+  editingFoodPhotos.splice(index, 1);
+  renderFoodEditPhotos();
+}
+function addPhotoToEditingMeal() {
+  const file = document.getElementById('foodEditFileInput').files[0];
+  if (!file) return;
+  compressFile(file, (dataUrl) => {
+    editingFoodPhotos.push({ photo: dataUrl, time: nowLocalInput() });
+    renderFoodEditPhotos();
+  });
 }
 async function saveFoodEdit() {
   const e = babyLogs.find(l => l.id === editingFoodId);
@@ -1218,6 +1251,7 @@ async function saveFoodEdit() {
   const end = document.getElementById('foodEditEnd').value;
   e.endTime = end || null;
   e.finished = !!end;
+  e.photos = editingFoodPhotos;
   closeModal('foodEditOverlay');
   renderBaby();
   await saveBaby();
@@ -1373,19 +1407,6 @@ function openPhotoView(url) {
     `<img src="${url}" style="width:100%; border-radius:14px; display:block;">`;
   openModal('photoViewOverlay');
 }
-function openFoodPhotoView(id) {
-  const e = babyLogs.find(l => l.id === id);
-  if (!e) return;
-  if (!e.photos || e.photos.length === 0) { openFoodEdit(id); return; }
-  let html = e.photos.map((p, i) => `
-    <div style="text-align:center;color:white;font-size:12px;font-weight:600;margin:${i === 0 ? '0' : '12px'} 0 6px;">
-      ${e.photos.length > 1 ? `Attempt ${i + 1} · ` : ''}${timeLabel(p.time)}
-    </div>
-    <img src="${p.photo}" style="width:100%; border-radius:14px; display:block;">`).join('');
-  document.getElementById('photoViewBody').innerHTML = html;
-  openModal('photoViewOverlay');
-}
-
 function babyLogRow(l) {
   if (l.type === 'sleep') {
     const dur = l.end ? durationLabel(l.start, l.end) : 'ongoing';
@@ -1444,13 +1465,12 @@ function babyLogRow(l) {
         ${extraCount > 0 ? `<div class="entry-icon food" style="font-size:11px; font-weight:700;">+${extraCount}</div>` : ''}
       </div>`
     : `<div class="entry-icon food">🍽️</div>`;
-  return `<div class="log-entry" onclick="${hasPhotos ? `openFoodPhotoView('${l.id}')` : `openFoodEdit('${l.id}')`}">
+  return `<div class="log-entry" onclick="openFoodEdit('${l.id}')">
     ${thumbs}
     <div class="entry-body">
       <div class="entry-title">Meal · ${status}${photos.length > 1 ? ` (${photos.length} tries)` : ''}${hasPhotos ? '' : ' (no photo)'}</div>
       <div class="entry-time">${timeLabel(l.startTime)}${l.endTime ? ' – ' + timeLabel(l.endTime) : ''}</div>
     </div>
-    <button class="del" style="opacity:0.5;" onclick="event.stopPropagation(); openFoodEdit('${l.id}')">✏️</button>
     <button class="del" onclick="event.stopPropagation(); deleteBabyLog('${l.id}')">×</button>
   </div>`;
 }
@@ -1614,7 +1634,7 @@ function renderBaby() {
   let html = '';
   const archivedEntries = [];
   Object.keys(groups).forEach(label => {
-    if (label === 'Today' || label === 'Yesterday') {
+    if (label === 'Today') {
       html += `<div class="section-label">${label}</div><div class="log-list">${groups[label].map(babyLogRow).join('')}</div>`;
     } else {
       archivedEntries.push(...groups[label]);
@@ -1674,9 +1694,11 @@ function renderToday() {
     ? '<div class="dash-empty">Nothing pending — all clear 🎉</div>'
     : relevant.map(dashTaskRow).join('');
 
-  const { sleepMins, milkMl, meals } = computeTodayStats();
-  document.getElementById('dashSleep').textContent = sleepMins >= 60
-    ? `${Math.floor(sleepMins/60)}h ${Math.round(sleepMins%60)}m` : `${Math.round(sleepMins)}m`;
+  const { milkMl, meals } = computeTodayStats();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const { napMins } = daySleepBreakdown(todayStr);
+  document.getElementById('dashSleep').textContent = napMins >= 60
+    ? `${Math.floor(napMins/60)}h ${Math.round(napMins%60)}m` : `${Math.round(napMins)}m`;
   document.getElementById('dashMilk').textContent = `${milkMl}ml`;
   document.getElementById('dashMeals').textContent = meals;
 
