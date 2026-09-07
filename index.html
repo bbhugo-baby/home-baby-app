@@ -1679,7 +1679,7 @@ function renderBaby() {
 
 function updateClock() {
   const now = new Date();
-  document.getElementById('dashTime').textContent = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('dashTime').textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   document.getElementById('dashDate').textContent = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 function isDeadlineToday(dateStr) {
@@ -1995,11 +1995,11 @@ function renderCalendar() {
   titleEl.textContent = monthLabel;
 
   const grid = document.getElementById('calGrid');
-  const dows = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const dows = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
 
   const firstDay = new Date(calViewYear, calViewMonth, 1);
-  const startOffset = firstDay.getDay();
+  const startOffset = (firstDay.getDay() + 6) % 7; // shift so Monday = 0
   const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
