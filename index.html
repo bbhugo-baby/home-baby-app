@@ -130,6 +130,8 @@
   .modal h3 { margin: 0 0 14px; font-size: 17px; }
   .field-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); margin: 10px 0 5px; }
   .preset-row { display: flex; gap: 6px; margin-top: 6px; }
+  .photo-preview { display: none; width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; margin-top: 8px; }
+  .photo-preview.show { display: block; }
   .preset { flex: 1; padding: 8px 4px; border-radius: 8px; border: 1.5px solid var(--line); background: white;
     font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--ink); }
 
@@ -265,7 +267,7 @@
     </div>
 
     <div class="dash-summary">
-      <div class="dash-stat"><div class="num" id="dashSleep">0h</div><div class="lbl">Sleep today</div></div>
+      <div class="dash-stat"><div class="num" id="dashSleep">0h</div><div class="lbl">Nap today</div></div>
       <div class="dash-stat"><div class="num" id="dashMilk">0ml</div><div class="lbl">Milk today</div></div>
       <div class="dash-stat"><div class="num" id="dashMeals">0</div><div class="lbl">Meals today</div></div>
     </div>
@@ -282,7 +284,7 @@
     <div class="quick-actions-block">
       <div class="quick-actions">
         <div class="qbtn-wrap">
-          <button class="qbtn sleep-c" id="dashSleepBtn" onclick="tapSleep()"><span class="ic">😴</span><span id="dashSleepLbl">Sleep</span></button>
+          <button class="qbtn sleep-c" id="dashSleepBtn" onclick="tapSleep()"><span class="ic">😴</span><span id="dashSleepLbl">Nap</span></button>
           <button class="mini-edit" onclick="openSleepManual()">Key in time</button>
         </div>
         <div class="qbtn-wrap">
@@ -291,7 +293,7 @@
         </div>
         <div class="qbtn-wrap">
           <button class="qbtn food-c" id="dashFoodBtn" onclick="triggerFoodCapture()"><span class="ic">🍽️</span><span id="dashFoodLbl">Food</span></button>
-          <button class="mini-edit" style="visibility:hidden;">·</button>
+          <button class="mini-edit" onclick="openFoodManual()">Key in time</button>
         </div>
       </div>
       <div class="mini-log-grid">
@@ -300,6 +302,7 @@
         <button class="mini-log-btn" onclick="tapSimple('pee')"><span class="ic">💧</span>Pee<span class="mini-log-badge" id="badge-today-pee">0</span></button>
         <button class="mini-log-btn" onclick="tapSimple('diaper')"><span class="ic">🧷</span>Diaper<span class="mini-log-badge" id="badge-today-diaper">0</span></button>
       </div>
+      <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:6px;" onclick="openSimpleManualAdd()">Key in time</button>
     </div>
 
     <div class="dash-section-label">📅 Upcoming</div>
@@ -330,17 +333,6 @@
 
   <!-- BABY PAGE -->
   <div class="page" id="page-baby">
-    <div class="dash-section-label" style="margin-top:0;">📊 Last 3 Days</div>
-    <div id="dailySummaryRecent"><div class="loading">Loading…</div></div>
-    <div id="dailySummaryOlder"></div>
-
-    <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:16px;" onclick="exportData()">⤓ Export all data (CSV)</button>
-    <button class="add-toggle" style="margin-top:10px; background: var(--rose);" onclick="openNoteModal()">📝 Add a note</button>
-    <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:10px;" onclick="openPhotoArchive()">🗄️ View archived meal photos</button>
-
-    <div id="babyLogContent"><div class="loading">Loading…</div></div>
-
-    <div class="dash-section-label">📏 Growth</div>
     <div class="summary">
       <div class="stat"><div class="num" id="latestWeight">–</div><div class="lbl" id="latestWeightDate">No entries yet</div></div>
       <div class="stat"><div class="num" id="latestHeight">–</div><div class="lbl" id="latestHeightDate">No entries yet</div></div>
@@ -366,6 +358,16 @@
         <button class="btn-save chores-c" onclick="addGrowth()">Save</button>
       </div>
     </div>
+
+    <div class="dash-section-label">📊 Last 3 Days</div>
+    <div id="dailySummaryRecent"><div class="loading">Loading…</div></div>
+    <div id="dailySummaryOlder"></div>
+
+    <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:16px;" onclick="exportData()">⤓ Export all data (CSV)</button>
+    <button class="add-toggle" style="margin-top:10px; background: var(--rose);" onclick="openNoteModal()">📝 Add a note</button>
+    <button class="mini-edit" style="display:block; width:100%; text-align:center; margin-top:10px;" onclick="openPhotoArchive()">🗄️ View archived meal photos</button>
+
+    <div id="babyLogContent"><div class="loading">Loading…</div></div>
   </div>
 
 </div>
@@ -528,6 +530,42 @@
     </div>
     <div class="add-actions" style="margin-top:8px;">
       <button class="btn-delete" onclick="deleteSimpleEdit()">Delete this entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL ADD: shower/poop/pee/diaper (backfill a forgotten entry) -->
+<div class="modal-overlay" id="simpleManualOverlay">
+  <div class="modal">
+    <h3>Key in time</h3>
+    <div class="field-label" style="margin-top:0;">Type</div>
+    <select id="simpleManualType">
+      <option value="shower">🚿 Shower</option>
+      <option value="poop">💩 Poop</option>
+      <option value="pee">💧 Pee</option>
+      <option value="diaper">🧷 Diaper</option>
+    </select>
+    <div class="field-label">Time</div>
+    <input type="datetime-local" id="simpleManualTime">
+    <div class="add-actions" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal('simpleManualOverlay')">Cancel</button>
+      <button class="btn-save chores-c" onclick="saveSimpleManual()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL ADD: meal (backfill a forgotten meal, photo optional) -->
+<div class="modal-overlay" id="foodManualOverlay">
+  <div class="modal">
+    <h3>🍽️ Key in meal time</h3>
+    <div class="field-label" style="margin-top:0;">Time</div>
+    <input type="datetime-local" id="foodManualTime">
+    <div class="field-label">Photo (optional)</div>
+    <input type="file" id="foodManualFileInput" accept="image/*" onchange="previewFoodManualPhoto()">
+    <img id="foodManualPreview" class="photo-preview">
+    <div class="add-actions" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal('foodManualOverlay')">Cancel</button>
+      <button class="btn-save food-c" onclick="saveFoodManual()">Save</button>
     </div>
   </div>
 </div>
@@ -1232,6 +1270,49 @@ async function deleteSimpleEdit() {
   await saveBaby();
 }
 
+function openSimpleManualAdd() {
+  document.getElementById('simpleManualType').value = 'shower';
+  document.getElementById('simpleManualTime').value = nowLocalInput();
+  openModal('simpleManualOverlay');
+}
+async function saveSimpleManual() {
+  const type = document.getElementById('simpleManualType').value;
+  const time = document.getElementById('simpleManualTime').value;
+  if (!time) return;
+  babyLogs.push({ id: uid(), type, time, createdAt: Date.now() });
+  closeModal('simpleManualOverlay');
+  renderBaby();
+  await saveBaby();
+}
+
+let pendingFoodManualPhoto = null;
+function openFoodManual() {
+  document.getElementById('foodManualTime').value = nowLocalInput();
+  document.getElementById('foodManualFileInput').value = '';
+  document.getElementById('foodManualPreview').classList.remove('show');
+  pendingFoodManualPhoto = null;
+  openModal('foodManualOverlay');
+}
+function previewFoodManualPhoto() {
+  const file = document.getElementById('foodManualFileInput').files[0];
+  if (!file) return;
+  compressFile(file, (dataUrl) => {
+    pendingFoodManualPhoto = dataUrl;
+    const preview = document.getElementById('foodManualPreview');
+    preview.src = dataUrl;
+    preview.classList.add('show');
+  });
+}
+async function saveFoodManual() {
+  const time = document.getElementById('foodManualTime').value;
+  if (!time) return;
+  const photos = pendingFoodManualPhoto ? [{ photo: pendingFoodManualPhoto, time }] : [];
+  babyLogs.push({ id: uid(), type: 'food', startTime: time, photos, endTime: time, finished: true, createdAt: Date.now() });
+  closeModal('foodManualOverlay');
+  renderBaby();
+  await saveBaby();
+}
+
 /* ----- Notes (vaccine, eczema, anything free-text) ----- */
 let editingNoteId = null;
 let pendingNotePhoto = null;
@@ -1608,7 +1689,7 @@ function renderToday() {
       ? `🌙 Sleeping since ${timeLabel(openNap.start)}`
       : `☀️ Napping since ${timeLabel(openNap.start)}`;
   } else { dashNapBanner.style.display = 'none'; }
-  document.getElementById('dashSleepLbl').textContent = openNap ? 'Wake' : 'Sleep';
+  document.getElementById('dashSleepLbl').textContent = openNap ? 'Wake' : 'Nap';
   document.getElementById('dashSleepBtn').classList.toggle('active-state', !!openNap);
 
   const openMeal = babyLogs.find(l => l.type === 'food' && !l.finished);
