@@ -679,6 +679,11 @@ function enterApp() {
   document.getElementById('mainApp').style.display = 'block';
   startApp();
   setInterval(() => { firebaseRefreshToken().then(reconnectAllSubscriptions).catch(() => {}); }, 50 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      firebaseRefreshToken().then(reconnectAllSubscriptions).catch(() => {});
+    }
+  });
 }
 
 (async function initAuth() {
@@ -697,23 +702,39 @@ function enterApp() {
 
 window.storage = {
   async get(key, shared) {
-    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`);
+    let res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`);
+    if (res.status === 401) {
+      await firebaseRefreshToken().catch(() => {});
+      res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`);
+    }
     if (!res.ok) throw new Error(`Firebase read failed: ${res.status}`);
     const data = await res.json();
     if (data === null) throw new Error('Key not found');
     return { key, value: data, shared: !!shared };
   },
   async set(key, value, shared) {
-    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`, {
+    let res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(value)
     });
+    if (res.status === 401) {
+      await firebaseRefreshToken().catch(() => {});
+      res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value)
+      });
+    }
     if (!res.ok) throw new Error(`Firebase write failed: ${res.status}`);
     return { key, value, shared: !!shared };
   },
   async delete(key, shared) {
-    const res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`, { method: 'DELETE' });
+    let res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`, { method: 'DELETE' });
+    if (res.status === 401) {
+      await firebaseRefreshToken().catch(() => {});
+      res = await fetch(`${FIREBASE_DB_URL}/${key}.json?auth=${authIdToken}`, { method: 'DELETE' });
+    }
     if (!res.ok) return null;
     return { key, deleted: true, shared: !!shared };
   },
