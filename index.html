@@ -814,14 +814,28 @@ function loadTasks() {
     if (!tasksSaving) renderTasks();
   });
 }
+let recentlyDeletedTaskIds = new Set();
 async function saveTasks() {
   tasksSaving = true;
+  const localSnapshot = tasks;
   try {
+    let latest = [];
+    try {
+      const r = await window.storage.get(TASKS_KEY, true);
+      latest = r.value ? JSON.parse(r.value) : [];
+    } catch (e) { latest = []; }
+    const localIds = new Set(localSnapshot.map(t => t.id));
+    const merged = localSnapshot.slice();
+    latest.forEach(t => { if (!localIds.has(t.id) && !recentlyDeletedTaskIds.has(t.id)) merged.push(t); });
+    tasks = merged;
     await window.storage.set(TASKS_KEY, JSON.stringify(tasks), true);
+    recentlyDeletedTaskIds.clear();
+    renderTasks();
   } catch (e1) {
     try {
       await new Promise(r => setTimeout(r, 800));
       await window.storage.set(TASKS_KEY, JSON.stringify(tasks), true);
+      recentlyDeletedTaskIds.clear();
     } catch (e2) {
       const msg = (e2 && e2.message) ? e2.message : String(e2);
       document.getElementById('tasksContent').insertAdjacentHTML('afterbegin',
@@ -870,6 +884,7 @@ async function addTask() {
   await saveTasks();
 }
 async function deleteTaskModal() {
+  recentlyDeletedTaskIds.add(editingTaskId);
   tasks = tasks.filter(x => x.id !== editingTaskId);
   closeModal('taskModalOverlay');
   renderTasks();
@@ -897,6 +912,7 @@ async function toggleDone(id) {
   await saveTasks();
 }
 async function deleteTask(id) {
+  recentlyDeletedTaskIds.add(id);
   tasks = tasks.filter(t => t.id !== id);
   renderTasks();
   await saveTasks();
@@ -1081,14 +1097,32 @@ function exportData() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+let recentlyDeletedBabyIds = new Set();
 async function saveBaby() {
   babySaving = true;
+  const localSnapshot = babyLogs; // capture immediately — must not be affected by any SSE update that arrives mid-save
   try {
+    // Merge with the latest server data first, so a concurrent save from another
+    // device (Mummy/Daddy logging at nearly the same time) never gets wiped out.
+    let latest = [];
+    try {
+      const r = await window.storage.get(BABY_KEY, true);
+      latest = r.value ? JSON.parse(r.value) : [];
+    } catch (e) { latest = []; }
+    const localIds = new Set(localSnapshot.map(l => l.id));
+    const merged = localSnapshot.slice();
+    latest.forEach(entry => {
+      if (!localIds.has(entry.id) && !recentlyDeletedBabyIds.has(entry.id)) merged.push(entry);
+    });
+    babyLogs = merged;
     await window.storage.set(BABY_KEY, JSON.stringify(babyLogs), true);
+    recentlyDeletedBabyIds.clear();
+    renderBaby();
   } catch (e1) {
     try {
       await new Promise(r => setTimeout(r, 800));
       await window.storage.set(BABY_KEY, JSON.stringify(babyLogs), true);
+      recentlyDeletedBabyIds.clear();
     } catch (e2) {
       const msg = (e2 && e2.message) ? e2.message : String(e2);
       document.getElementById('babyLogContent').insertAdjacentHTML('afterbegin',
@@ -1137,6 +1171,7 @@ async function saveSleepModal() {
   await saveBaby();
 }
 async function deleteSleepModal() {
+  recentlyDeletedBabyIds.add(editingSleepId);
   babyLogs = babyLogs.filter(l => l.id !== editingSleepId);
   closeModal('sleepModalOverlay');
   renderBaby();
@@ -1180,6 +1215,7 @@ async function saveMilkModal() {
   await saveBaby();
 }
 async function deleteMilkModal() {
+  recentlyDeletedBabyIds.add(editingMilkId);
   babyLogs = babyLogs.filter(l => l.id !== editingMilkId);
   closeModal('milkModalOverlay');
   renderBaby();
@@ -1285,6 +1321,7 @@ async function saveFoodEdit() {
   await saveBaby();
 }
 async function deleteFoodEdit() {
+  recentlyDeletedBabyIds.add(editingFoodId);
   babyLogs = babyLogs.filter(l => l.id !== editingFoodId);
   closeModal('foodEditOverlay');
   renderBaby();
@@ -1292,6 +1329,7 @@ async function deleteFoodEdit() {
 }
 
 async function deleteBabyLog(id) {
+  recentlyDeletedBabyIds.add(id);
   babyLogs = babyLogs.filter(l => l.id !== id);
   renderBaby();
   await saveBaby();
@@ -1326,6 +1364,7 @@ async function saveSimpleEdit() {
   await saveBaby();
 }
 async function deleteSimpleEdit() {
+  recentlyDeletedBabyIds.add(editingSimpleId);
   babyLogs = babyLogs.filter(l => l.id !== editingSimpleId);
   closeModal('simpleEditOverlay');
   renderBaby();
@@ -1424,6 +1463,7 @@ async function saveNote() {
   await saveBaby();
 }
 async function deleteNoteModal() {
+  recentlyDeletedBabyIds.add(editingNoteId);
   babyLogs = babyLogs.filter(l => l.id !== editingNoteId);
   closeModal('noteModalOverlay');
   renderBaby();
@@ -1771,14 +1811,28 @@ function loadGrowth() {
     if (!growthSaving) renderGrowth();
   });
 }
+let recentlyDeletedGrowthIds = new Set();
 async function saveGrowth() {
   growthSaving = true;
+  const localSnapshot = growthLogs;
   try {
+    let latest = [];
+    try {
+      const r = await window.storage.get(GROWTH_KEY, true);
+      latest = r.value ? JSON.parse(r.value) : [];
+    } catch (e) { latest = []; }
+    const localIds = new Set(localSnapshot.map(g => g.id));
+    const merged = localSnapshot.slice();
+    latest.forEach(g => { if (!localIds.has(g.id) && !recentlyDeletedGrowthIds.has(g.id)) merged.push(g); });
+    growthLogs = merged;
     await window.storage.set(GROWTH_KEY, JSON.stringify(growthLogs), true);
+    recentlyDeletedGrowthIds.clear();
+    renderGrowth();
   } catch (e1) {
     try {
       await new Promise(r => setTimeout(r, 800));
       await window.storage.set(GROWTH_KEY, JSON.stringify(growthLogs), true);
+      recentlyDeletedGrowthIds.clear();
     } catch (e2) {
       const msg = (e2 && e2.message) ? e2.message : String(e2);
       document.getElementById('growthContent').insertAdjacentHTML('afterbegin',
@@ -1833,6 +1887,7 @@ async function saveGrowthEdit() {
   await saveGrowth();
 }
 async function deleteGrowthEdit() {
+  recentlyDeletedGrowthIds.add(editingGrowthId);
   growthLogs = growthLogs.filter(l => l.id !== editingGrowthId);
   closeModal('growthEditOverlay');
   renderGrowth();
@@ -1853,6 +1908,7 @@ function growthRow(e) {
   </div>`;
 }
 async function deleteGrowthRow(id) {
+  recentlyDeletedGrowthIds.add(id);
   growthLogs = growthLogs.filter(l => l.id !== id);
   renderGrowth();
   await saveGrowth();
@@ -1903,14 +1959,28 @@ function loadCalendar() {
     if (!calSaving) renderCalendar();
   });
 }
+let recentlyDeletedCalIds = new Set();
 async function saveCalendar() {
   calSaving = true;
+  const localSnapshot = calEvents;
   try {
+    let latest = [];
+    try {
+      const r = await window.storage.get(CALENDAR_KEY, true);
+      latest = r.value ? JSON.parse(r.value) : [];
+    } catch (e) { latest = []; }
+    const localIds = new Set(localSnapshot.map(c => c.id));
+    const merged = localSnapshot.slice();
+    latest.forEach(c => { if (!localIds.has(c.id) && !recentlyDeletedCalIds.has(c.id)) merged.push(c); });
+    calEvents = merged;
     await window.storage.set(CALENDAR_KEY, JSON.stringify(calEvents), true);
+    recentlyDeletedCalIds.clear();
+    renderCalendar();
   } catch (e1) {
     try {
       await new Promise(r => setTimeout(r, 800));
       await window.storage.set(CALENDAR_KEY, JSON.stringify(calEvents), true);
+      recentlyDeletedCalIds.clear();
     } catch (e2) {
       const msg = (e2 && e2.message) ? e2.message : String(e2);
       document.getElementById('calUpcoming').insertAdjacentHTML('afterbegin',
@@ -1977,6 +2047,7 @@ async function saveAppt() {
   await saveCalendar();
 }
 async function deleteAppt() {
+  recentlyDeletedCalIds.add(editingApptId);
   calEvents = calEvents.filter(x => x.id !== editingApptId);
   closeModal('apptModalOverlay');
   renderCalendar();
