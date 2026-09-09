@@ -815,7 +815,12 @@ function loadTasks() {
   });
 }
 let recentlyDeletedTaskIds = new Set();
-async function saveTasks() {
+let tasksSaveChain = Promise.resolve();
+function saveTasks() {
+  tasksSaveChain = tasksSaveChain.then(() => doSaveTasks()).catch(() => {});
+  return tasksSaveChain;
+}
+async function doSaveTasks() {
   tasksSaving = true;
   const localSnapshot = tasks;
   try {
@@ -1098,12 +1103,17 @@ function exportData() {
   URL.revokeObjectURL(url);
 }
 let recentlyDeletedBabyIds = new Set();
-async function saveBaby() {
+let babySaveChain = Promise.resolve();
+function saveBaby() {
+  babySaveChain = babySaveChain.then(() => doSaveBaby()).catch(() => {});
+  return babySaveChain;
+}
+async function doSaveBaby() {
   babySaving = true;
-  const localSnapshot = babyLogs; // capture immediately — must not be affected by any SSE update that arrives mid-save
+  const localSnapshot = babyLogs; // captured at actual execution time (after any earlier queued save finished) — always includes everything logged so far
   try {
-    // Merge with the latest server data first, so a concurrent save from another
-    // device (Mummy/Daddy logging at nearly the same time) never gets wiped out.
+    // Merge with the latest server data first, so an out-of-order network response
+    // from an earlier save (or another device) never wipes out newer entries.
     let latest = [];
     try {
       const r = await window.storage.get(BABY_KEY, true);
@@ -1812,7 +1822,12 @@ function loadGrowth() {
   });
 }
 let recentlyDeletedGrowthIds = new Set();
-async function saveGrowth() {
+let growthSaveChain = Promise.resolve();
+function saveGrowth() {
+  growthSaveChain = growthSaveChain.then(() => doSaveGrowth()).catch(() => {});
+  return growthSaveChain;
+}
+async function doSaveGrowth() {
   growthSaving = true;
   const localSnapshot = growthLogs;
   try {
@@ -1960,7 +1975,12 @@ function loadCalendar() {
   });
 }
 let recentlyDeletedCalIds = new Set();
-async function saveCalendar() {
+let calSaveChain = Promise.resolve();
+function saveCalendar() {
+  calSaveChain = calSaveChain.then(() => doSaveCalendar()).catch(() => {});
+  return calSaveChain;
+}
+async function doSaveCalendar() {
   calSaving = true;
   const localSnapshot = calEvents;
   try {
