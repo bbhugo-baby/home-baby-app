@@ -51,6 +51,14 @@
   .task-list, .log-list { display: flex; flex-direction: column; gap: 8px; }
   .task, .log-entry { display: flex; align-items: flex-start; gap: 12px; padding: 12px 13px;
     background: white; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+  .log-cluster { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 10px 13px; }
+  .log-cluster-time { font-size: 11px; font-weight: 700; color: var(--ink-soft); margin-bottom: 4px; }
+  .log-cluster-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+  .log-cluster-item .ic { font-size: 16px; width: 20px; text-align: center; }
+  .log-cluster-item .lbl { flex: 1; font-size: 13px; font-weight: 600; }
+  .log-cluster-item .time { font-size: 11px; color: var(--ink-soft); }
+  .log-cluster-item .del-mini { background: none; border: none; color: var(--ink-soft); opacity: 0.4;
+    font-size: 13px; cursor: pointer; padding: 2px 4px; }
   .task.done { background: var(--done-bg); border-color: var(--done-bg); }
   .check { flex-shrink: 0; width: 21px; height: 21px; border-radius: 7px; border: 2px solid var(--ink-soft);
     margin-top: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; background: white; }
@@ -1506,6 +1514,53 @@ function openPhotoView(url) {
     `<img src="${url}" style="width:100%; border-radius:14px; display:block;">`;
   openModal('photoViewOverlay');
 }
+function buildDayRows(entries) {
+  const CLUSTER_GAP_MS = 10 * 60 * 1000;
+  const sorted = [...entries].sort((a, b) => new Date(getLogTime(a)) - new Date(getLogTime(b)));
+  const rows = [];
+  let i = 0;
+  while (i < sorted.length) {
+    const e = sorted[i];
+    if (SIMPLE_TYPES[e.type]) {
+      const cluster = [e];
+      let j = i + 1;
+      while (j < sorted.length && SIMPLE_TYPES[sorted[j].type] &&
+             (new Date(sorted[j].time) - new Date(cluster[cluster.length - 1].time)) <= CLUSTER_GAP_MS) {
+        cluster.push(sorted[j]);
+        j++;
+      }
+      rows.push(cluster.length > 1 ? { kind: 'cluster', entries: cluster } : { kind: 'single', entry: e });
+      i = j;
+    } else {
+      rows.push({ kind: 'single', entry: e });
+      i++;
+    }
+  }
+  return rows.reverse();
+}
+function clusterRow(entries) {
+  const items = entries.map(e => {
+    const info = SIMPLE_TYPES[e.type];
+    return `<div class="log-cluster-item">
+      <span class="ic">${info.icon}</span>
+      <span class="lbl">${info.label}</span>
+      <span class="time">${timeLabel(e.time)}</span>
+      <button class="del-mini" onclick="event.stopPropagation(); openSimpleEdit('${e.id}')">✏️</button>
+      <button class="del-mini" onclick="event.stopPropagation(); deleteBabyLog('${e.id}')">×</button>
+    </div>`;
+  }).join('');
+  const firstT = timeLabel(entries[0].time);
+  const lastT = timeLabel(entries[entries.length - 1].time);
+  const range = firstT === lastT ? firstT : `${firstT} – ${lastT}`;
+  return `<div class="log-cluster">
+    <div class="log-cluster-time">${range}</div>
+    ${items}
+  </div>`;
+}
+function renderDayRows(entries) {
+  return buildDayRows(entries).map(r => r.kind === 'cluster' ? clusterRow(r.entries) : babyLogRow(r.entry)).join('');
+}
+
 function babyLogRow(l) {
   if (l.type === 'sleep') {
     const dur = l.end ? durationLabel(l.start, l.end) : 'ongoing';
@@ -1676,6 +1731,9 @@ function dayMealCount(dateStr) {
 function dayPoopCount(dateStr) {
   return babyLogs.filter(l => l.type === 'poop' && l.time.slice(0, 10) === dateStr).length;
 }
+function dayDiaperCount(dateStr) {
+  return babyLogs.filter(l => l.type === 'diaper' && l.time.slice(0, 10) === dateStr).length;
+}
 function fmtMins(m) {
   return m >= 60 ? `${Math.floor(m / 60)}h ${Math.round(m % 60)}m` : `${Math.round(m)}m`;
 }
@@ -1685,6 +1743,7 @@ function dayCard(dateStr) {
   const milk = dayMilkMl(dateStr);
   const meals = dayMealCount(dateStr);
   const poop = dayPoopCount(dateStr);
+  const diaper = dayDiaperCount(dateStr);
   return `<div class="day-summary-card">
     <div class="day-summary-title">${label}</div>
     <div class="day-summary-grid">
@@ -1693,6 +1752,7 @@ function dayCard(dateStr) {
       <div class="day-summary-item">🍼 Milk: <b>${milk}ml</b></div>
       <div class="day-summary-item">🍽️ Meals: <b>${meals}</b></div>
       <div class="day-summary-item">💩 Poop: <b>${poop}</b></div>
+      <div class="day-summary-item">🧷 Diaper: <b>${diaper}</b></div>
     </div>
   </div>`;
 }
@@ -1734,7 +1794,7 @@ function renderBaby() {
   const archivedGroups = [];
   Object.keys(groups).forEach(label => {
     if (label === 'Today') {
-      html += `<div class="section-label">${label}</div><div class="log-list">${groups[label].map(babyLogRow).join('')}</div>`;
+      html += `<div class="section-label">${label}</div><div class="log-list">${renderDayRows(groups[label])}</div>`;
     } else {
       archivedGroups.push({ label, entries: groups[label] });
     }
@@ -1745,7 +1805,7 @@ function renderBaby() {
     html += `<div class="section-label collapsible" onclick="toggleSection('babyArchived')"><span class="arrow">${babyArchOpen ? '▾' : '▸'}</span>Archived (${totalCount})</div>`;
     if (babyArchOpen) {
       archivedGroups.forEach(g => {
-        html += `<div class="section-label">${g.label}</div><div class="log-list">${g.entries.map(babyLogRow).join('')}</div>`;
+        html += `<div class="section-label">${g.label}</div><div class="log-list">${renderDayRows(g.entries)}</div>`;
       });
     }
   }
