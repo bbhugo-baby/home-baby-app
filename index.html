@@ -1631,8 +1631,20 @@ function babyLogRow(l) {
 
 function sleepKind(startStr, endStr) {
   const start = new Date(startStr);
+  const end = endStr ? new Date(endStr) : new Date();
   const startHour = start.getHours() + start.getMinutes() / 60;
-  return (startHour >= 20.5 || startHour < 11) ? 'night' : 'nap';
+  const durationHours = (end - start) / 3600000;
+  if (startHour >= 20.5) {
+    // Evening: only counts as night sleep if it's a real bedtime-length sleep,
+    // not a short pre-bedtime catnap.
+    return durationHours >= 3 ? 'night' : 'nap';
+  }
+  if (startHour < 11) {
+    // Past midnight through late morning: always night sleep, even a short
+    // fragment — a 2am wake for a feed is still part of the night.
+    return 'night';
+  }
+  return 'nap'; // daytime
 }
 
 function computeTodayStats() {
