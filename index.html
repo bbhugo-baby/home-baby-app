@@ -1631,7 +1631,7 @@ function babyLogRow(l) {
 
 function sleepKind(startStr) {
   const h = new Date(startStr).getHours();
-  return (h >= 19 || h < 7) ? 'night' : 'nap';
+  return (h >= 19 || h < 11) ? 'night' : 'nap';
 }
 
 function computeTodayStats() {
