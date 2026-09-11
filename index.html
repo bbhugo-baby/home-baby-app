@@ -1634,8 +1634,8 @@ function sleepKind(startStr, endStr) {
   const end = endStr ? new Date(endStr) : new Date();
   const startHour = start.getHours() + start.getMinutes() / 60;
   const durationHours = (end - start) / 3600000;
-  const isEveningStart = startHour >= 20.5 || startHour < 7;
-  return (isEveningStart && durationHours >= 3) ? 'night' : 'nap';
+  const isEveningOrEarlyMorning = startHour >= 20.5 || startHour < 11;
+  return (isEveningOrEarlyMorning && durationHours >= 3) ? 'night' : 'nap';
 }
 
 function computeTodayStats() {
