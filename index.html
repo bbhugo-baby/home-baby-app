@@ -1712,12 +1712,14 @@ function getAllTouchedDates() {
 
 function daySleepBreakdown(dateStr) {
   // Each sleep session counts as ONE whole number, attributed to the day it
-  // started — matching how the raw log groups entries. No splitting across
-  // midnight: "he slept 10 hours last night" stays 10 hours, not 3 + 7.
+  // ENDED on (i.e. the morning you'd naturally ask "how did he sleep last
+  // night?"). No splitting across midnight, and this correctly groups an
+  // overnight sleep together with its early-morning continuation.
   let nightMins = 0, napMins = 0;
   babyLogs.forEach(l => {
     if (l.type !== 'sleep') return;
-    if (l.start.slice(0, 10) !== dateStr) return;
+    const endDateStr = l.end ? l.end.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    if (endDateStr !== dateStr) return;
     const end = l.end ? new Date(l.end) : new Date();
     const mins = (end - new Date(l.start)) / 60000;
     if (sleepKind(l.start, l.end) === 'night') nightMins += mins; else napMins += mins;
