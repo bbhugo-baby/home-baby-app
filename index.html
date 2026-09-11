@@ -1564,7 +1564,7 @@ function renderDayRows(entries) {
 function babyLogRow(l) {
   if (l.type === 'sleep') {
     const dur = l.end ? durationLabel(l.start, l.end) : 'ongoing';
-    const kind = sleepKind(l.start);
+    const kind = sleepKind(l.start, l.end);
     const kindIcon = kind === 'night' ? '🌙' : '☀️';
     const kindLabel = kind === 'night' ? 'Night sleep' : 'Nap';
     return `<div class="log-entry" onclick="openSleepManual('${l.id}')">
@@ -1629,9 +1629,13 @@ function babyLogRow(l) {
   </div>`;
 }
 
-function sleepKind(startStr) {
-  const h = new Date(startStr).getHours();
-  return (h >= 19 || h < 11) ? 'night' : 'nap';
+function sleepKind(startStr, endStr) {
+  const start = new Date(startStr);
+  const end = endStr ? new Date(endStr) : new Date();
+  const startHour = start.getHours() + start.getMinutes() / 60;
+  const durationHours = (end - start) / 3600000;
+  const isEveningStart = startHour >= 20.5 || startHour < 7;
+  return (isEveningStart && durationHours >= 3) ? 'night' : 'nap';
 }
 
 function computeTodayStats() {
@@ -1709,7 +1713,7 @@ function daySleepBreakdown(dateStr) {
     const overlapEnd = e > dayEnd ? dayEnd : e;
     if (overlapEnd <= overlapStart) return;
     const mins = (overlapEnd - overlapStart) / 60000;
-    if (sleepKind(l.start) === 'night') nightMins += mins; else napMins += mins;
+    if (sleepKind(l.start, l.end) === 'night') nightMins += mins; else napMins += mins;
   });
   return { nightMins, napMins };
 }
@@ -1871,7 +1875,7 @@ function renderToday() {
   const dashNapBanner = document.getElementById('dashNapBanner');
   if (openNap) {
     dashNapBanner.style.display = 'flex';
-    const napKind = sleepKind(openNap.start);
+    const napKind = sleepKind(openNap.start, null);
     document.getElementById('dashNapText').textContent = napKind === 'night'
       ? `🌙 Sleeping since ${timeLabel(openNap.start)}`
       : `☀️ Napping since ${timeLabel(openNap.start)}`;
